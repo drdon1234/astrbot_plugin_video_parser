@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import asyncio
 import aiohttp
 from .base_parser import BaseVideoParser
-from .parsers import BilibiliParser, DouyinParser
+from .parsers import BilibiliParser, DouyinParser, TwitterParser
 
 
 class ParserManager:
@@ -21,7 +21,6 @@ class ParserManager:
             parsers: 解析器列表，如果为None则使用默认的解析器
         """
         if parsers is None:
-            # 使用默认解析器
             self.parsers: List[BaseVideoParser] = [
                 BilibiliParser(),
                 DouyinParser()
@@ -118,17 +117,12 @@ class ParserManager:
         if not links_with_parser:
             return []
         
-        # 去重
         unique_links = self._deduplicate_links(links_with_parser)
-        
-        # 并发解析
         tasks = [parser.parse(session, url) for url, parser in unique_links.items()]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # 过滤异常和None
         return [result for result in results if result and not isinstance(result, Exception)]
     
-    async def build_nodes(self, event, is_auto_pack: bool) -> Optional[List]:
+    async def build_nodes(self, event, is_auto_pack: bool) -> Optional[tuple]:
         """
         构建消息节点
         
@@ -137,7 +131,7 @@ class ParserManager:
             is_auto_pack: 是否打包为Node
             
         Returns:
-            节点列表，如果没有可解析的链接则返回None
+            (节点列表, 临时文件路径列表, 视频文件路径列表) 元组，如果没有可解析的链接则返回None
         """
         try:
             input_text = event.message_str
@@ -145,10 +139,11 @@ class ParserManager:
             if not links_with_parser:
                 return None
             
-            # 去重
             unique_links = self._deduplicate_links(links_with_parser)
             
             nodes = []
+            temp_files = []
+            video_files = []
             sender_name = "视频解析bot"
             platform = event.get_platform_name()
             sender_id = event.get_self_id()
@@ -160,26 +155,31 @@ class ParserManager:
             
             timeout = aiohttp.ClientTimeout(total=30)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                tasks = [parser.parse(session, url) for url, parser in unique_links.items()]
+                url_parser_pairs = list(unique_links.items())
+                tasks = [parser.parse(session, url) for url, parser in url_parser_pairs]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 
-                # 使用第一个解析器实例来构建节点（所有解析器都继承自BaseVideoParser，方法相同）
-                parser_instance = next(iter(unique_links.values())) if unique_links else None
-                
-                for result in results:
-                    if result and not isinstance(result, Exception) and parser_instance:
-                        # 使用基类方法构建文本节点
+                for (url, parser_instance), result in zip(url_parser_pairs, results):
+                    if result and not isinstance(result, Exception):
+                        if result.get('image_files'):
+                            temp_files.extend(result['image_files'])
+                        
+                        if result.get('video_files'):
+                            for video_file_info in result['video_files']:
+                                file_path = video_file_info.get('file_path')
+                                if file_path:
+                                    video_files.append(file_path)
+                        
                         text_node = parser_instance.build_text_node(result, sender_name, sender_id, is_auto_pack)
                         if text_node:
                             nodes.append(text_node)
                         
-                        # 使用基类方法构建媒体节点
                         media_nodes = parser_instance.build_media_nodes(result, sender_name, sender_id, is_auto_pack)
                         nodes.extend(media_nodes)
             
             if not nodes:
                 return None
-            return nodes
+            return (nodes, temp_files, video_files)
         except Exception:
             return None
 

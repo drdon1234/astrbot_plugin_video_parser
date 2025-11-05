@@ -29,6 +29,30 @@
         "hint": "禁用后将不再解析抖音链接",
         "default": true
     },
+    "enable_twitter": {
+        "description": "是否启用Twitter/X解析器",
+        "type": "bool",
+        "hint": "禁用后将不再解析Twitter/X链接",
+        "default": true
+    },
+    "twitter_use_proxy": {
+        "description": "Twitter解析是否使用代理",
+        "type": "bool",
+        "hint": "启用后，Twitter解析和下载将通过代理进行",
+        "default": false
+    },
+    "twitter_proxy_url": {
+        "description": "Twitter代理地址",
+        "type": "string",
+        "hint": "代理地址格式：http://host:port 或 socks5://host:port（例如：http://127.0.0.1:7890）",
+        "default": ""
+    },
+    "twitter_cache_dir": {
+        "description": "Twitter视频缓存目录",
+        "type": "string",
+        "hint": "Twitter视频文件保存的目录路径（例如：/app/sharedFolder/video_parser/cache/twitter）",
+        "default": "/app/sharedFolder/video_parser/cache/twitter"
+    },
     "trigger_keywords": {
         "description": "手动触发解析的关键词列表",
         "type": "list",
