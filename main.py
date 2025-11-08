@@ -4,7 +4,7 @@ from astrbot.api.star import Context, Star, register
 from astrbot.api.message_components import Nodes
 from astrbot.core.star.filter.event_message_type import EventMessageType
 from .parser_manager import ParserManager
-from .parsers import BilibiliParser, DouyinParser, TwitterParser
+from .parsers import BilibiliParser, DouyinParser, TwitterParser, KuaishouParser
 import re
 import os
 
@@ -34,6 +34,12 @@ class VideoParserPlugin(Star):
                 proxy_url=proxy_url,
                 cache_dir=cache_dir
             ))
+        if config.get("enable_kuaishou", True):
+            parsers.append(KuaishouParser(max_video_size_mb=max_video_size_mb))
+        
+        # 检查是否至少启用了一个解析器
+        if not parsers:
+            raise ValueError("至少需要启用一个视频解析器。请检查配置中的 enable_bilibili、enable_douyin、enable_twitter、enable_kuaishou 设置。")
         
         self.parser_manager = ParserManager(parsers)
         self.trigger_keywords = config.get("trigger_keywords", ["视频解析", "解析视频"])
@@ -55,29 +61,26 @@ class VideoParserPlugin(Star):
         if self.is_auto_parse:
             return True
         
+        # 检查配置的触发关键词
         for keyword in self.trigger_keywords:
             if keyword in message_str:
                 return True
         
-        if bool(re.search(r'.?B站解析|b站解析|bilibili解析', message_str)):
-            return True
-        if bool(re.search(r'.?抖音解析', message_str)):
-            return True
+        # 检查平台特定的解析触发词（向后兼容）
+        platform_triggers = [
+            r'.?B站解析|b站解析|bilibili解析',
+            r'.?抖音解析',
+            r'.?快手解析'
+        ]
+        for pattern in platform_triggers:
+            if re.search(pattern, message_str):
+                return True
         
         return False
 
-    def _cleanup_temp_files(self, temp_files: list):
-        """清理临时文件"""
-        for file_path in temp_files:
-            if file_path and os.path.exists(file_path):
-                try:
-                    os.unlink(file_path)
-                except Exception:
-                    pass
-    
-    def _cleanup_video_files(self, video_files: list):
-        """清理视频文件"""
-        for file_path in video_files:
+    def _cleanup_files(self, file_paths: list):
+        """清理文件"""
+        for file_path in file_paths:
             if file_path and os.path.exists(file_path):
                 try:
                     os.unlink(file_path)
@@ -87,9 +90,9 @@ class VideoParserPlugin(Star):
     def _cleanup_all_files(self, temp_files: list, video_files: list):
         """清理所有文件"""
         if temp_files:
-            self._cleanup_temp_files(temp_files)
+            self._cleanup_files(temp_files)
         if video_files:
-            self._cleanup_video_files(video_files)
+            self._cleanup_files(video_files)
     
     @filter.event_message_type(EventMessageType.ALL)
     async def auto_parse(self, event: AstrMessageEvent):

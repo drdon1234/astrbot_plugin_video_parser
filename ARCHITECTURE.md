@@ -6,7 +6,6 @@
 astrbot_plugin_video_parser/
 ├── __init__.py                 # 插件初始化文件
 ├── main.py                     # 插件主入口
-├── base_parser.py              # 基础解析器抽象类
 ├── parser_manager.py           # 解析器管理器
 ├── _conf_schema.json           # 配置架构定义
 ├── metadata.yaml               # 插件元数据
@@ -15,14 +14,17 @@ astrbot_plugin_video_parser/
 ├── ARCHITECTURE.md             # 架构说明（本文件）
 └── parsers/                    # 解析器目录
     ├── __init__.py             # 解析器模块导出
-    ├── bilibili_parser.py      # B站解析器
-    ├── douyin_parser.py        # 抖音解析器
-    └── example_parser.py       # 示例解析器（用于参考）
+    ├── base_parser.py          # 基础解析器抽象类
+    ├── bilibili.py             # B站解析器
+    ├── douyin.py               # 抖音解析器
+    ├── kuaishou.py             # 快手解析器
+    ├── twitter.py              # Twitter/X 解析器
+    └── example.py              # 示例解析器（用于参考）
 ```
 
 ## 核心组件
 
-### 1. BaseVideoParser (base_parser.py)
+### 1. BaseVideoParser (parsers/base_parser.py)
 
 所有解析器的基类，定义了统一的接口：
 
@@ -55,11 +57,13 @@ astrbot_plugin_video_parser/
 
 ### 3. 具体解析器 (parsers/)
 
-每个平台的解析器实现：
+每个平台的解析器实现（使用"平台名.py"命名）：
 
-- **BilibiliParser**: 解析B站视频（UGC/PGC）
-- **DouyinParser**: 解析抖音视频/图片集
-- **ExampleParser**: 示例解析器（用于参考）
+- **BilibiliParser** (`bilibili.py`): 解析B站视频（UGC/PGC）
+- **DouyinParser** (`douyin.py`): 解析抖音视频/图片集
+- **KuaishouParser** (`kuaishou.py`): 解析快手视频/图片集
+- **TwitterParser** (`twitter.py`): 解析Twitter/X视频/图片
+- **ExampleParser** (`example.py`): 示例解析器（用于参考）
 
 ### 4. VideoParserPlugin (main.py)
 
@@ -85,7 +89,7 @@ AstrBot插件主类：
    ↓
 6. 返回统一格式的解析结果
    ↓
-7. ParserManager._build_text_node() 和 _build_media_nodes()
+7. 解析器.build_text_node() 和 build_media_nodes()
    ↓
 8. 返回节点列表
    ↓
@@ -96,8 +100,8 @@ AstrBot插件主类：
 
 ### 添加新解析器步骤：
 
-1. 在 `parsers/` 目录创建新文件，例如 `youtube_parser.py`
-2. 继承 `BaseVideoParser` 并实现三个必要方法
+1. 在 `parsers/` 目录创建新文件，使用"平台名.py"命名，例如 `youtube.py`
+2. 继承 `BaseVideoParser` 并实现三个必要方法（从 `parsers.base_parser` 导入）
 3. 在 `parsers/__init__.py` 中导出新解析器
 4. 在 `main.py` 中根据配置初始化新解析器
 5. 在 `_conf_schema.json` 中添加配置项

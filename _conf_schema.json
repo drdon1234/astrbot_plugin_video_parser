@@ -35,6 +35,12 @@
         "hint": "禁用后将不再解析Twitter/X链接",
         "default": true
     },
+    "enable_kuaishou": {
+        "description": "是否启用快手解析器",
+        "type": "bool",
+        "hint": "禁用后将不再解析快手链接",
+        "default": true
+    },
     "twitter_use_proxy": {
         "description": "Twitter解析是否使用代理",
         "type": "bool",

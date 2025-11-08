@@ -6,27 +6,22 @@
 from typing import List, Dict, Any, Optional, Tuple
 import asyncio
 import aiohttp
-from .base_parser import BaseVideoParser
-from .parsers import BilibiliParser, DouyinParser, TwitterParser
+from .parsers.base_parser import BaseVideoParser
 
 
 class ParserManager:
     """解析器管理器"""
     
-    def __init__(self, parsers: List[BaseVideoParser] = None):
+    def __init__(self, parsers: List[BaseVideoParser]):
         """
         初始化解析器管理器
         
         Args:
-            parsers: 解析器列表，如果为None则使用默认的解析器
+            parsers: 解析器列表（必需）
         """
-        if parsers is None:
-            self.parsers: List[BaseVideoParser] = [
-                BilibiliParser(),
-                DouyinParser()
-            ]
-        else:
-            self.parsers = parsers
+        if not parsers:
+            raise ValueError("parsers 参数不能为空")
+        self.parsers = parsers
     
     def register_parser(self, parser: BaseVideoParser):
         """
@@ -160,26 +155,44 @@ class ParserManager:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 
                 for (url, parser_instance), result in zip(url_parser_pairs, results):
-                    if result and not isinstance(result, Exception):
-                        if result.get('image_files'):
-                            temp_files.extend(result['image_files'])
-                        
-                        if result.get('video_files'):
-                            for video_file_info in result['video_files']:
-                                file_path = video_file_info.get('file_path')
-                                if file_path:
-                                    video_files.append(file_path)
-                        
-                        text_node = parser_instance.build_text_node(result, sender_name, sender_id, is_auto_pack)
-                        if text_node:
-                            nodes.append(text_node)
-                        
-                        media_nodes = parser_instance.build_media_nodes(result, sender_name, sender_id, is_auto_pack)
-                        nodes.extend(media_nodes)
+                    # 跳过异常结果（解析失败时会返回异常）
+                    if isinstance(result, Exception):
+                        # 解析失败，继续处理下一个链接
+                        continue
+                    
+                    # 跳过None结果（解析失败时返回None）
+                    if not result:
+                        continue
+                    
+                    # 处理图片文件
+                    if result.get('image_files'):
+                        temp_files.extend(result['image_files'])
+                    
+                    # 处理视频文件
+                    if result.get('video_files'):
+                        for video_file_info in result['video_files']:
+                            file_path = video_file_info.get('file_path')
+                            if file_path:
+                                video_files.append(file_path)
+                    
+                    # 构建文本节点
+                    text_node = parser_instance.build_text_node(result, sender_name, sender_id, is_auto_pack)
+                    if text_node:
+                        nodes.append(text_node)
+                    
+                    # 构建媒体节点
+                    media_nodes = parser_instance.build_media_nodes(result, sender_name, sender_id, is_auto_pack)
+                    nodes.extend(media_nodes)
             
             if not nodes:
                 return None
             return (nodes, temp_files, video_files)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError) as e:
+            # 捕获预期的异常类型，避免插件崩溃
+            # 网络错误、超时、数据格式错误等应该被静默处理
+            return None
         except Exception:
+            # 捕获其他未预期的异常，避免插件崩溃
+            # 在生产环境中，建议记录日志以便调试
             return None
 

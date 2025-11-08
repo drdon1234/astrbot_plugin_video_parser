@@ -47,11 +47,11 @@
 
 ### 添加新的解析器
 
-1. 在 `parsers/` 目录下创建新的解析器文件，例如 `youtube_parser.py`
+1. 在 `parsers/` 目录下创建新的解析器文件，使用"平台名.py"命名，例如 `youtube.py`
 2. 继承 `BaseVideoParser` 类并实现必要的方法：
 
 ```python
-from ..base_parser import BaseVideoParser
+from .base_parser import BaseVideoParser
 from typing import Optional, Dict, Any, List
 import aiohttp
 
@@ -78,8 +78,8 @@ class YouTubeParser(BaseVideoParser):
 3. 在 `parsers/__init__.py` 中导入新解析器：
 
 ```python
-from .youtube_parser import YouTubeParser
-__all__ = ['BilibiliParser', 'DouyinParser', 'YouTubeParser']
+from .youtube import YouTubeParser
+__all__ = ['BilibiliParser', 'DouyinParser', 'TwitterParser', 'KuaishouParser', 'YouTubeParser']
 ```
 
 4. 在 `main.py` 中注册新解析器：
@@ -104,7 +104,7 @@ if config.get("enable_youtube", True):
 
 ### 核心组件
 
-1. **BaseVideoParser** (`base_parser.py`)
+1. **BaseVideoParser** (`parsers/base_parser.py`)
    - 所有解析器的基类
    - 定义了统一的接口和通用方法
    - 提供视频大小检查、节点构建等辅助功能

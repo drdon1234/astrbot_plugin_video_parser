@@ -2,9 +2,10 @@
 """
 解析器模块
 """
-from .bilibili_parser import BilibiliParser
-from .douyin_parser import DouyinParser
-from .twitter_parser import TwitterParser
+from .bilibili import BilibiliParser
+from .douyin import DouyinParser
+from .twitter import TwitterParser
+from .kuaishou import KuaishouParser
 
-__all__ = ['BilibiliParser', 'DouyinParser', 'TwitterParser']
+__all__ = ['BilibiliParser', 'DouyinParser', 'TwitterParser', 'KuaishouParser']
 
