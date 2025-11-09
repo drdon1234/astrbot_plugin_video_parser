@@ -5,25 +5,16 @@ from typing import Optional, Dict, Any, Tuple, List
 from urllib.parse import urlparse, parse_qs
 import aiohttp
 from .base_parser import BaseVideoParser
-
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-
 B23_HOST = "b23.tv"
-# BV号正则：大小写不敏感，支持BV/bv/Bv等
 BV_RE = re.compile(r"[Bb][Vv][0-9A-Za-z]{10,}", re.IGNORECASE)
-# AV号正则：大小写不敏感，提取数字部分
 AV_RE = re.compile(r"[Aa][Vv](\d+)", re.IGNORECASE)
-# 番剧链接正则
 EP_PATH_RE = re.compile(r"/bangumi/play/ep(\d+)", re.IGNORECASE)
 EP_QS_RE = re.compile(r"(?:^|[?&])ep_id=(\d+)", re.IGNORECASE)
-
-# BV号编码表（新算法）
 BV_TABLE = "FcwAPNKTMug3GV5Lj7EJnHpWsx4tb8haYeviqBz6rkCy12mUSDQX9RdoZf"
-
-# 常量定义
 XOR_CODE = 23442827791579
-MAX_AID = 1 << 51  # 2^51
+MAX_AID = 1 << 51
 BASE = 58
 
 
@@ -31,60 +22,49 @@ def av2bv(av: int) -> str:
     """
     将AV号转换为BV号
     参考: https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/bvid_desc.md
-    
     Args:
         av: AV号（整数）
-        
     Returns:
         BV号字符串
     """
-    # 初始化数组
     bytes_arr = ['B', 'V', '1', '0', '0', '0', '0', '0', '0', '0', '0', '0']
     bv_idx = len(bytes_arr) - 1
-    
-    # 计算tmp: (MAX_AID | av) ^ XOR_CODE
     tmp = (MAX_AID | av) ^ XOR_CODE
-    
-    # 将tmp转换为58进制，从后往前填入
     while tmp > 0:
         bytes_arr[bv_idx] = BV_TABLE[tmp % BASE]
         tmp = tmp // BASE
         bv_idx -= 1
-    
-    # 交换位置：索引3和9，索引4和7
     bytes_arr[3], bytes_arr[9] = bytes_arr[9], bytes_arr[3]
     bytes_arr[4], bytes_arr[7] = bytes_arr[7], bytes_arr[4]
-    
     return ''.join(bytes_arr)
 
 
 class BilibiliParser(BaseVideoParser):
     """B站视频解析器"""
-    
+
     def __init__(self, max_video_size_mb: float = 0.0, large_video_threshold_mb: float = 50.0, cache_dir: str = "/app/sharedFolder/video_parser/cache"):
         super().__init__("B站", max_video_size_mb, large_video_threshold_mb, cache_dir)
         self.semaphore = asyncio.Semaphore(10)
-        # 统一的请求头
         self._default_headers = {
             "User-Agent": UA,
             "Referer": "https://www.bilibili.com",
             "Origin": "https://www.bilibili.com"
         }
-    
+
     def _prepare_aid_param(self, aid: str) -> int:
         """将aid转换为整数"""
         try:
             return int(aid) if isinstance(aid, str) else aid
         except (ValueError, TypeError):
             return aid
-    
+
     async def _check_json_response(self, resp: aiohttp.ClientResponse) -> dict:
         """检查并解析JSON响应"""
         if resp.content_type != 'application/json':
             text = await resp.text()
             raise RuntimeError(f"API返回非JSON响应 (状态码: {resp.status}, Content-Type: {resp.content_type}): {text[:200]}")
         return await resp.json()
-    
+
     async def _handle_api_response(self, j: dict, api_name: str) -> None:
         """处理API响应，检查错误码"""
         if j.get("code") != 0:
@@ -96,29 +76,19 @@ class BilibiliParser(BaseVideoParser):
         """判断是否可以解析此URL（仅支持静态视频：普通视频和番剧）"""
         if not url:
             return False
-        
-        # 排除非静态视频链接
         url_lower = url.lower()
-        # 排除直播链接
         if 'live.bilibili.com' in url_lower:
             return False
-        # 排除动态链接
         if '/dynamic/' in url_lower or '/opus/' in url_lower:
             return False
-        # 排除空间链接
         if 'space.bilibili.com' in url_lower:
             return False
-        
-        # 检查是否为b23短链
         if B23_HOST in urlparse(url).netloc.lower():
             return True
-        # 检查是否包含BV号
         if BV_RE.search(url):
             return True
-        # 检查是否包含AV号
         if AV_RE.search(url):
             return True
-        # 检查是否为番剧链接
         if EP_PATH_RE.search(url) or EP_QS_RE.search(url):
             return True
         return False
@@ -126,49 +96,33 @@ class BilibiliParser(BaseVideoParser):
     def extract_links(self, text: str) -> List[str]:
         """从文本中提取B站链接，最大程度兼容各种格式"""
         result_links = []
-        seen_ids = set()  # 用于去重：记录已提取的BV/AV号
-        
-        # b23短链（支持大小写和http/https）
+        seen_ids = set()
         b23_pattern = r'https?://[Bb]23\.tv/[^\s<>"\'()]+'
         b23_links = re.findall(b23_pattern, text, re.IGNORECASE)
         result_links.extend(b23_links)
-        
-        # B站各种域名和格式的链接
-        # 支持：www.bilibili.com, m.bilibili.com, mobile.bilibili.com
-        # 排除：live.bilibili.com（直播）、space.bilibili.com（空间）
         bilibili_domains = r'(?:www|m|mobile)\.bilibili\.com'
-        
-        # 完整的BV号链接（支持各种格式和参数，仅视频类型）
         bv_url_pattern = rf'https?://{bilibili_domains}/video/[Bb][Vv][0-9A-Za-z]{{10,}}[^\s<>"\'()]*'
         bv_url_matches = re.finditer(bv_url_pattern, text, re.IGNORECASE)
         for match in bv_url_matches:
             url = match.group(0)
-            # 排除非视频链接（虽然域名已限制，但为安全起见仍检查）
             url_lower = url.lower()
             if '/dynamic/' in url_lower or '/opus/' in url_lower:
                 continue
-            # 标准化URL
             normalized = url.lower().replace('m.bilibili.com', 'www.bilibili.com')
             normalized = normalized.replace('mobile.bilibili.com', 'www.bilibili.com')
-            # 提取BV号并标准化
-            bv_match = BV_RE.search(url)  # 从原始URL提取，保持大小写
+            bv_match = BV_RE.search(url)
             if bv_match:
                 bvid = bv_match.group(0)
-                # 只确保前缀是BV（大写），后面的字符保持原样
                 if bvid[0:2].upper() != "BV":
                     bvid = "BV" + bvid[2:]
-                # 保持原始大小写
                 seen_ids.add(f"BV:{bvid}")
                 normalized_url = f"https://www.bilibili.com/video/{bvid}"
                 if normalized_url not in result_links:
                     result_links.append(normalized_url)
-        
-        # 完整的AV号链接（支持各种格式和参数）
         av_url_pattern = rf'https?://{bilibili_domains}/video/[Aa][Vv](\d+)[^\s<>"\'()]*'
         av_url_matches = re.finditer(av_url_pattern, text, re.IGNORECASE)
         for match in av_url_matches:
             url = match.group(0)
-            # 排除非视频链接
             url_lower = url.lower()
             if '/dynamic/' in url_lower or '/opus/' in url_lower:
                 continue
@@ -177,8 +131,6 @@ class BilibiliParser(BaseVideoParser):
             av_url = f"https://www.bilibili.com/video/av{av_num}"
             if av_url not in result_links:
                 result_links.append(av_url)
-        
-        # 番剧链接（支持各种格式和参数）
         ep_url_pattern = rf'https?://{bilibili_domains}/bangumi/play/ep(\d+)[^\s<>"\'()]*'
         ep_url_matches = re.finditer(ep_url_pattern, text, re.IGNORECASE)
         for match in ep_url_matches:
@@ -186,51 +138,36 @@ class BilibiliParser(BaseVideoParser):
             ep_url = f"https://www.bilibili.com/bangumi/play/ep{ep_id}"
             if ep_url not in result_links:
                 result_links.append(ep_url)
-        
-        # 单独的BV号（不区分大小写，支持在文本中单独出现）
-        # 使用更宽松的匹配，但排除已经在完整链接中出现的
         bv_standalone_pattern = r'\b[Bb][Vv][0-9A-Za-z]{10,}\b'
         bv_standalone_matches = re.finditer(bv_standalone_pattern, text, re.IGNORECASE)
         for match in bv_standalone_matches:
             bvid = match.group(0)
-            # 只确保前缀是BV（大写），后面的字符保持原样
             if bvid[0:2].upper() != "BV":
                 bvid = "BV" + bvid[2:]
-            # 保持原始大小写
-            # 检查是否已经在完整URL中出现
             if f"BV:{bvid}" not in seen_ids:
-                # 检查是否在URL中（避免重复提取）
                 start_pos = match.start()
                 context_start = max(0, start_pos - 50)
                 context_end = min(len(text), match.end() + 10)
                 context = text[context_start:context_end]
-                # 如果周围没有http://或https://，认为是独立出现的
                 if 'http://' not in context.lower() and 'https://' not in context.lower():
                     seen_ids.add(f"BV:{bvid}")
                     bv_url = f"https://www.bilibili.com/video/{bvid}"
                     if bv_url not in result_links:
                         result_links.append(bv_url)
-        
-        # 单独的AV号（不区分大小写）
-        # 使用更宽松的匹配，但排除已经在完整链接中出现的
         av_standalone_pattern = r'\b[Aa][Vv](\d+)\b'
         av_standalone_matches = re.finditer(av_standalone_pattern, text, re.IGNORECASE)
         for match in av_standalone_matches:
             av_num = match.group(1)
-            # 检查是否已经在完整URL中出现
             if f"AV:{av_num}" not in seen_ids:
-                # 检查是否在URL中（避免重复提取）
                 start_pos = match.start()
                 context_start = max(0, start_pos - 50)
                 context_end = min(len(text), match.end() + 10)
                 context = text[context_start:context_end]
-                # 如果周围没有http://或https://，认为是独立出现的
                 if 'http://' not in context.lower() and 'https://' not in context.lower():
                     seen_ids.add(f"AV:{av_num}")
                     av_url = f"https://www.bilibili.com/video/av{av_num}"
                     if av_url not in result_links:
                         result_links.append(av_url)
-        
         return result_links
 
     async def expand_b23(self, url: str, session: aiohttp.ClientSession) -> str:
@@ -241,7 +178,7 @@ class BilibiliParser(BaseVideoParser):
                 async with session.get(url, headers=headers, allow_redirects=True, timeout=aiohttp.ClientTimeout(total=10)) as r:
                     expanded_url = str(r.url)
                     return expanded_url
-            except Exception as e:
+            except Exception:
                 return url
         return url
 
@@ -254,30 +191,22 @@ class BilibiliParser(BaseVideoParser):
 
     def detect_target(self, url: str) -> Tuple[Optional[str], Dict[str, str]]:
         """检测视频类型和标识符（支持视频和番剧）"""
-        # 检查番剧链接
         m = EP_PATH_RE.search(url) or EP_QS_RE.search(url)
         if m:
             return "pgc", {"ep_id": m.group(1)}
-        # 检查BV号
         m = BV_RE.search(url)
         if m:
-            # 保持BV号的原始大小写（B站BV号有特定编码规则，不能随意转换大小写）
             bvid = m.group(0)
-            # 只确保前缀是BV（大写），后面的字符保持原样
             if bvid[0:2].upper() != "BV":
                 bvid = "BV" + bvid[2:]
-            # 保持原始大小写，不进行任何转换
             return "ugc", {"bvid": bvid}
-        # 检查AV号，转换为BV号统一处理
         m = AV_RE.search(url)
         if m:
             try:
                 aid = int(m.group(1))
-                # 将AV号转换为BV号
                 bvid = av2bv(aid)
                 return "ugc", {"bvid": bvid}
-            except (ValueError, OverflowError) as e:
-                # 转换失败时，仍然使用aid（向后兼容）
+            except (ValueError, OverflowError):
                 return "ugc", {"aid": m.group(1)}
         return None, {}
 
@@ -376,7 +305,6 @@ class BilibiliParser(BaseVideoParser):
             params["aid"] = self._prepare_aid_param(aid)
         else:
             raise ValueError("必须提供bvid或aid参数")
-        
         headers = {**self._default_headers, "Referer": referer}
         async with session.get(api, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
             j = await self._check_json_response(resp)
@@ -419,84 +347,61 @@ class BilibiliParser(BaseVideoParser):
     async def _get_ugc_direct_url(self, bvid: str = None, aid: str = None, cid: int = None, referer: str = None, session: aiohttp.ClientSession = None) -> Optional[str]:
         """
         获取UGC视频直链（统一处理bvid和aid）
-        
         Args:
             bvid: BV号（优先）
             aid: AV号（备用）
             cid: 分P的cid
             referer: 引用页面URL
             session: aiohttp会话
-            
         Returns:
             视频直链，如果失败则返回None
         """
         FNVAL_MAX = 4048
-        # 探测最佳画质
         if bvid:
             probe = await self.ugc_playurl(bvid=bvid, cid=cid, qn=120, fnval=FNVAL_MAX, referer=referer, session=session)
         else:
             probe = await self.ugc_playurl(aid=aid, cid=cid, qn=120, fnval=FNVAL_MAX, referer=referer, session=session)
-        
         target_qn = self.best_qn_from_data(probe) or probe.get("quality") or 80
-        
-        # 先尝试合并格式
         if bvid:
             merged_try = await self.ugc_playurl(bvid=bvid, cid=cid, qn=target_qn, fnval=0, referer=referer, session=session)
         else:
             merged_try = await self.ugc_playurl(aid=aid, cid=cid, qn=target_qn, fnval=0, referer=referer, session=session)
-        
         if merged_try.get("durl"):
             return merged_try["durl"][0].get("url")
-        
-        # 尝试DASH格式
         if bvid:
             dash_try = await self.ugc_playurl(bvid=bvid, cid=cid, qn=target_qn, fnval=FNVAL_MAX, referer=referer, session=session)
         else:
             dash_try = await self.ugc_playurl(aid=aid, cid=cid, qn=target_qn, fnval=FNVAL_MAX, referer=referer, session=session)
-        
         v = self.pick_best_video(dash_try.get("dash") or {})
         return (v.get("baseUrl") or v.get("base_url")) if v else None
-    
+
     async def get_video_size(self, video_url: str, session: aiohttp.ClientSession, referer: str = None) -> Optional[float]:
         """
         获取视频文件大小(MB)（B站专用，需要Referer请求头）
-        
         Args:
             video_url: 视频URL
             session: aiohttp会话
             referer: 引用页面URL（可选，默认使用bilibili.com）
-            
         Returns:
             Optional[float]: 视频大小(MB)，如果无法获取则返回None
         """
         try:
-            # 使用B站的请求头，包含Referer
             headers = self._default_headers.copy()
             if referer:
                 headers["Referer"] = referer
-            
-            # 先尝试HEAD请求
             async with session.head(video_url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                # 优先检查Content-Range（无论状态码，因为它包含完整文件大小）
                 content_range = resp.headers.get("Content-Range")
                 if content_range:
-                    # Content-Range格式: bytes 286523392-286526818/286526819
-                    # 提取最后一个数字（完整文件大小）
                     match = re.search(r'/\s*(\d+)', content_range)
                     if match:
                         size_bytes = int(match.group(1))
                         size_mb = size_bytes / (1024 * 1024)
                         return size_mb
-                
-                # 如果没有Content-Range，检查Content-Length
                 content_length = resp.headers.get("Content-Length")
                 if content_length:
                     size_bytes = int(content_length)
                     size_mb = size_bytes / (1024 * 1024)
                     return size_mb
-            
-            # 如果HEAD请求失败或没有Content-Length，尝试使用Range请求
-            # 发送一个Range请求来获取Content-Range头
             headers["Range"] = "bytes=0-1"
             async with session.get(video_url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 content_range = resp.headers.get("Content-Range")
@@ -506,8 +411,6 @@ class BilibiliParser(BaseVideoParser):
                         size_bytes = int(match.group(1))
                         size_mb = size_bytes / (1024 * 1024)
                         return size_mb
-                
-                # 如果没有Content-Range，检查Content-Length
                 content_length = resp.headers.get("Content-Length")
                 if content_length:
                     size_bytes = int(content_length)
@@ -522,7 +425,7 @@ class BilibiliParser(BaseVideoParser):
         async with self.semaphore:
             try:
                 return await self.parse_bilibili_minimal(url, session=session)
-            except Exception as e:
+            except Exception:
                 return None
 
     async def parse_bilibili_minimal(self, url: str, p: Optional[int] = None, session: aiohttp.ClientSession = None) -> Optional[Dict[str, Any]]:
@@ -531,49 +434,37 @@ class BilibiliParser(BaseVideoParser):
             timeout = aiohttp.ClientTimeout(total=10)
             async with aiohttp.ClientSession(headers={"User-Agent": UA}, timeout=timeout) as sess:
                 return await self.parse_bilibili_minimal(url, p, sess)
-        
         original_url = url
         page_url = await self.expand_b23(url, session)
-        # 展开b23短链后，再次检查是否为可解析的静态视频链接
         if not self.can_parse(page_url):
             return None
         p_index = max(1, int(p or self.extract_p(page_url)))
         vtype, ident = self.detect_target(page_url)
         if not vtype:
             return None
-
         if vtype == "ugc":
-            # 普通视频（UGC）- 统一使用BV号处理
             bvid = ident.get("bvid")
-            aid = ident.get("aid")  # 备用，如果转换失败时使用
-            
-            # 优先使用BV号（AV号已转换为BV号）
+            aid = ident.get("aid")
             if bvid:
                 info = await self.get_ugc_info(bvid=bvid, session=session)
                 pages = await self.get_pagelist(bvid=bvid, session=session)
             elif aid:
-                # 如果BV号转换失败，使用aid（向后兼容）
                 info = await self.get_ugc_info(aid=aid, session=session)
                 pages = await self.get_pagelist(aid=aid, session=session)
             else:
                 return None
-            
             if p_index > len(pages):
                 return None
             cid = pages[p_index - 1]["cid"]
-            
-            # 获取视频直链（统一处理bvid和aid）
             direct_url = await self._get_ugc_direct_url(bvid=bvid, aid=aid, cid=cid, referer=page_url, session=session)
             if not direct_url:
                 return None
         elif vtype == "pgc":
-            # 番剧（PGC）
             FNVAL_MAX = 4048
             ep_id = ident["ep_id"]
             info = await self.get_pgc_info_by_ep(ep_id, session)
             probe = await self.pgc_playurl_v2(ep_id, qn=120, fnval=FNVAL_MAX, referer=page_url, session=session)
             target_qn = self.best_qn_from_data(probe) or probe.get("quality") or 80
-
             merged_try = await self.pgc_playurl_v2(ep_id, qn=target_qn, fnval=0, referer=page_url, session=session)
             if merged_try.get("durl"):
                 direct_url = merged_try["durl"][0].get("url")
@@ -583,77 +474,46 @@ class BilibiliParser(BaseVideoParser):
                 direct_url = (v.get("baseUrl") or v.get("base_url")) if v else ""
         else:
             return None
-
         if not direct_url:
             return None
-
-        # 检查视频大小（使用B站专用的get_video_size方法，传递referer）
         video_size = await self.get_video_size(direct_url, session, referer=page_url)
-        
-        # 首先检查是否超过最大允许大小（max_video_size_mb）
-        # 如果超过，跳过该视频，不下载
         if self.max_video_size_mb > 0 and video_size is not None:
             if video_size > self.max_video_size_mb:
-                return None  # 超过最大允许大小，跳过该视频
-        
+                return None
         is_b23_short = urlparse(original_url).netloc.lower() == B23_HOST
         display_url = original_url if is_b23_short else page_url
-        
         result = {
             "video_url": display_url,
             "author": info["author"],
             "title": info["title"],
             "desc": info["desc"],
             "direct_url": direct_url,
-            "file_size_mb": video_size  # 保存视频大小信息（MB）
+            "file_size_mb": video_size
         }
-        
-        # 检查是否超过大视频阈值（从配置读取）
-        # 如果视频大小超过阈值但不超过max_video_size_mb，将下载到缓存目录并单独发送
-        # 重要：必须在构建result后立即检查，确保force_separate_send被设置
-        has_large_video = False
         video_file_path = None
-        
         if self.large_video_threshold_mb > 0 and video_size is not None and video_size > self.large_video_threshold_mb:
-            # 如果设置了max_video_size_mb，确保不超过最大允许大小
             if self.max_video_size_mb <= 0 or video_size <= self.max_video_size_mb:
-                has_large_video = True
-                # 立即设置 force_separate_send，确保被正确识别
-                result['has_large_video'] = True
-                result['force_separate_send'] = True  # 强制单独发送
-                
-                # 下载大视频到缓存目录
-                # 生成视频ID用于文件名
+                result['force_separate_send'] = True
                 if vtype == "ugc":
                     video_id = ident.get("bvid") or ident.get("aid") or "bilibili"
                 else:
                     video_id = f"ep_{ident.get('ep_id', 'pgc')}"
-                
                 video_file_path = await self._download_large_video_to_cache(
-                    session, 
-                    direct_url, 
-                    video_id, 
-                    index=p_index - 1,  # 使用分P索引
+                    session,
+                    direct_url,
+                    video_id,
+                    index=p_index - 1,
                     headers=self._default_headers
                 )
-                
                 if video_file_path:
-                    # 如果成功下载到缓存目录，使用文件路径而不是URL
                     result['video_files'] = [{'file_path': video_file_path}]
-                    # 注意：即使下载成功，也保留 direct_url 作为备用，但优先使用文件
-                    # result['direct_url'] = None  # 不再设置为 None，保留作为备用
-                # 如果下载失败，direct_url 仍然保留，可以通过 URL 方式发送，但仍然单独发送
-        
         return result
-    
+
     def build_media_nodes(self, result: Dict[str, Any], sender_name: str, sender_id: Any, is_auto_pack: bool) -> List:
         """
         构建媒体节点（视频或图片）
         如果解析结果中有 video_files（大视频已下载到缓存目录），优先使用文件方式构建节点
         """
-        from astrbot.api.message_components import Video
-        
-        # 如果结果中有 video_files（大视频已下载到缓存目录），优先使用文件方式
         if result.get('video_files'):
             return self._build_video_gallery_nodes_from_files(
                 result['video_files'],
@@ -661,8 +521,4 @@ class BilibiliParser(BaseVideoParser):
                 sender_id,
                 is_auto_pack
             )
-        
-        # 否则使用默认的URL方式
         return super().build_media_nodes(result, sender_name, sender_id, is_auto_pack)
-
-
