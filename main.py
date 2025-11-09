@@ -18,26 +18,34 @@ class VideoParserPlugin(Star):
         self.is_auto_parse = config.get("is_auto_parse", True)
         self.is_auto_pack = config.get("is_auto_pack", True)
         max_video_size_mb = config.get("max_video_size_mb", 0.0)
-        # 大视频阈值硬编码为100MB（napcat平台限制）
-        self.large_video_threshold_mb = 100.0
+        # 读取大视频阈值配置，并限制最大值为100MB（消息适配器硬性阈值）
+        large_video_threshold_mb = config.get("large_video_threshold_mb", 50.0)
+        if large_video_threshold_mb > 0:
+            # 限制最大值为100MB（消息适配器硬性阈值）
+            large_video_threshold_mb = min(large_video_threshold_mb, 100.0)
+        self.large_video_threshold_mb = large_video_threshold_mb
+        # 通用缓存目录，用于Twitter视频和所有大视频
+        cache_dir = config.get("cache_dir", "/app/sharedFolder/video_parser/cache")
+        # 确保缓存目录存在
+        os.makedirs(cache_dir, exist_ok=True)
         
         parsers = []
         if config.get("enable_bilibili", True):
-            parsers.append(BilibiliParser(max_video_size_mb=max_video_size_mb))
+            parsers.append(BilibiliParser(max_video_size_mb=max_video_size_mb, large_video_threshold_mb=large_video_threshold_mb, cache_dir=cache_dir))
         if config.get("enable_douyin", True):
-            parsers.append(DouyinParser(max_video_size_mb=max_video_size_mb))
+            parsers.append(DouyinParser(max_video_size_mb=max_video_size_mb, large_video_threshold_mb=large_video_threshold_mb, cache_dir=cache_dir))
         if config.get("enable_twitter", True):
             use_proxy = config.get("twitter_use_proxy", False)
             proxy_url = config.get("twitter_proxy_url", "")
-            cache_dir = config.get("twitter_cache_dir", "/app/sharedFolder/video_parser/cache/twitter")
             parsers.append(TwitterParser(
                 max_video_size_mb=max_video_size_mb,
+                large_video_threshold_mb=large_video_threshold_mb,
                 use_proxy=use_proxy,
                 proxy_url=proxy_url,
                 cache_dir=cache_dir
             ))
         if config.get("enable_kuaishou", True):
-            parsers.append(KuaishouParser(max_video_size_mb=max_video_size_mb))
+            parsers.append(KuaishouParser(max_video_size_mb=max_video_size_mb, large_video_threshold_mb=large_video_threshold_mb, cache_dir=cache_dir))
         
         # 检查是否至少启用了一个解析器
         if not parsers:
@@ -90,11 +98,16 @@ class VideoParserPlugin(Star):
                     pass
     
     def _cleanup_all_files(self, temp_files: list, video_files: list):
-        """清理所有文件"""
+        """
+        清理所有文件
+        注意：缓存目录中的视频文件不会被清理，因为它们可能被重复使用
+        """
         if temp_files:
             self._cleanup_files(temp_files)
-        if video_files:
-            self._cleanup_files(video_files)
+        # video_files 现在都存储在缓存目录中，不应该被清理
+        # 如果需要清理缓存，应该在插件配置或单独的功能中处理
+        # if video_files:
+        #     self._cleanup_files(video_files)
     
     def _is_pure_image_gallery(self, nodes: list) -> bool:
         """
@@ -214,7 +227,7 @@ class VideoParserPlugin(Star):
                 # 如果开启了自动打包，在发送大视频前发送提示消息
                 if self.is_auto_pack:
                     # 发送醒目的提示消息
-                    threshold_mb = int(self.large_video_threshold_mb) if self.large_video_threshold_mb > 0 else 100
+                    threshold_mb = int(self.large_video_threshold_mb) if self.large_video_threshold_mb > 0 else 50
                     notice_text = f"⚠️ 链接中包含超过{threshold_mb}MB的视频时将单独发送所有媒体"
                     await event.send(event.plain_result(notice_text))
                 

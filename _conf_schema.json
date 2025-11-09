@@ -17,6 +17,12 @@
         "hint": "超过此大小的视频将被跳过，不下载也不发送，设置为0表示不限制",
         "default": 0.0
     },
+    "large_video_threshold_mb": {
+        "description": "大视频阈值(MB)",
+        "type": "float",
+        "hint": "当视频大小超过此阈值时，将单独发送而不包含在转发消息集合中。建议设置为50MB以下，不能超过消息适配器100MB硬性阈值。设置为0表示不启用此功能",
+        "default": 100.0
+    },
     "enable_bilibili": {
         "description": "是否启用B站解析器",
         "type": "bool",
@@ -53,11 +59,11 @@
         "hint": "代理地址格式：http://host:port 或 socks5://host:port（例如：http://127.0.0.1:7890）",
         "default": ""
     },
-    "twitter_cache_dir": {
-        "description": "Twitter视频缓存目录",
+    "cache_dir": {
+        "description": "视频缓存目录",
         "type": "string",
-        "hint": "Twitter视频文件保存的目录路径（例如：/app/sharedFolder/video_parser/cache/twitter）",
-        "default": "/app/sharedFolder/video_parser/cache/twitter"
+        "hint": "视频文件缓存目录，用于Twitter视频和所有超过100MB的大视频（例如：/app/sharedFolder/video_parser/cache）",
+        "default": "/app/sharedFolder/video_parser/cache"
     },
     "trigger_keywords": {
         "description": "手动触发解析的关键词列表",

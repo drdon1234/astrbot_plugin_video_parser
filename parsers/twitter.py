@@ -11,30 +11,25 @@ from .base_parser import BaseVideoParser
 class TwitterParser(BaseVideoParser):
     """Twitter/X 视频解析器"""
     
-    def __init__(self, max_video_size_mb: float = 0.0, use_proxy: bool = False, proxy_url: str = None, cache_dir: str = "/app/sharedFolder/video_parser/cache/twitter"):
+    def __init__(self, max_video_size_mb: float = 0.0, large_video_threshold_mb: float = 50.0, use_proxy: bool = False, proxy_url: str = None, cache_dir: str = "/app/sharedFolder/video_parser/cache"):
         """
         初始化 Twitter 解析器
         
         Args:
             max_video_size_mb: 最大允许的视频大小(MB)，超过此大小的视频将被跳过，0表示不限制
+            large_video_threshold_mb: 大视频阈值(MB)，超过此大小的视频将单独发送，0表示不启用，最大不超过100MB
             use_proxy: 是否使用代理
             proxy_url: 代理地址（格式：http://host:port 或 socks5://host:port）
-            cache_dir: 视频文件缓存目录
+            cache_dir: 视频文件缓存目录（通用缓存目录，用于Twitter视频和所有大视频）
         """
-        super().__init__("Twitter/X", max_video_size_mb)
-        # 大视频阈值硬编码为100MB（napcat平台限制）
-        self.large_video_threshold_mb = 100.0
+        super().__init__("Twitter/X", max_video_size_mb, large_video_threshold_mb, cache_dir)
         self.use_proxy = use_proxy
         self.proxy_url = proxy_url
-        self.cache_dir = cache_dir
         self.semaphore = asyncio.Semaphore(5)
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'application/json',
         }
-        
-        # 确保缓存目录存在
-        os.makedirs(self.cache_dir, exist_ok=True)
     
     def can_parse(self, url: str) -> bool:
         """判断是否可以解析此URL"""
@@ -216,10 +211,10 @@ class TwitterParser(BaseVideoParser):
                                 if video_size > self.max_video_size_mb:
                                     continue  # 超过最大允许大小，跳过该视频
                             
-                            # 检查是否超过大视频阈值（100MB，硬编码）
-                            # 如果视频大小超过100MB但不超过max_video_size_mb，将单独发送
+                            # 检查是否超过大视频阈值（从配置读取）
+                            # 如果视频大小超过阈值但不超过max_video_size_mb，将单独发送
                             exceeds_large_threshold = False
-                            if video_size is not None and video_size > self.large_video_threshold_mb:
+                            if self.large_video_threshold_mb > 0 and video_size is not None and video_size > self.large_video_threshold_mb:
                                 # 如果设置了max_video_size_mb，确保不超过最大允许大小
                                 if self.max_video_size_mb <= 0 or video_size <= self.max_video_size_mb:
                                     exceeds_large_threshold = True
@@ -264,6 +259,16 @@ class TwitterParser(BaseVideoParser):
                     # 如果有大视频，提前设置force_separate_send，以便parser_manager正确处理
                     if has_large_video:
                         result['force_separate_send'] = True
+                    # 提取视频大小信息（用于调试显示）
+                    # 如果有多个视频，显示最大视频的大小
+                    max_video_size = None
+                    for video_file_info in video_files:
+                        video_size = video_file_info.get('file_size_mb')
+                        if video_size is not None:
+                            if max_video_size is None or video_size > max_video_size:
+                                max_video_size = video_size
+                    if max_video_size is not None:
+                        result['file_size_mb'] = max_video_size
                 
                 if image_files:
                     result['image_files'] = image_files

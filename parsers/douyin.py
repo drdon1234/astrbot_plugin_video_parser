@@ -13,8 +13,8 @@ from .base_parser import BaseVideoParser
 class DouyinParser(BaseVideoParser):
     """抖音视频解析器"""
     
-    def __init__(self, max_video_size_mb: float = 0.0):
-        super().__init__("抖音", max_video_size_mb)
+    def __init__(self, max_video_size_mb: float = 0.0, large_video_threshold_mb: float = 50.0, cache_dir: str = "/app/sharedFolder/video_parser/cache"):
+        super().__init__("抖音", max_video_size_mb, large_video_threshold_mb, cache_dir)
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36',
             'Referer': 'https://www.douyin.com/?is_from_mobile_home=1&recommend=1'
@@ -371,13 +371,29 @@ class DouyinParser(BaseVideoParser):
                         if video_size > self.max_video_size_mb:
                             return None  # 超过最大允许大小，跳过该视频
                     
-                    # 检查是否超过大视频阈值（100MB，硬编码）
-                    # 如果视频大小超过100MB但不超过max_video_size_mb，将单独发送
+                    # 检查是否超过大视频阈值（从配置读取）
+                    # 如果视频大小超过阈值但不超过max_video_size_mb，将下载到缓存目录并单独发送
                     has_large_video = False
-                    if video_size is not None and video_size > 100.0:
+                    video_file_path = None
+                    
+                    if self.large_video_threshold_mb > 0 and video_size is not None and video_size > self.large_video_threshold_mb:
                         # 如果设置了max_video_size_mb，确保不超过最大允许大小
                         if self.max_video_size_mb <= 0 or video_size <= self.max_video_size_mb:
                             has_large_video = True
+                            # 下载大视频到缓存目录
+                            # 提取视频ID
+                            video_id_match = re.search(r'/video/(\d+)', url)
+                            if not video_id_match:
+                                video_id_match = re.search(r'(\d{19})', url)
+                            video_id = video_id_match.group(1) if video_id_match else "douyin"
+                            
+                            video_file_path = await self._download_large_video_to_cache(
+                                session,
+                                video_url,
+                                video_id,
+                                index=0,
+                                headers=self.headers
+                            )
                     
                     parse_result = {
                         "video_url": url,
@@ -389,9 +405,17 @@ class DouyinParser(BaseVideoParser):
                         "file_size_mb": video_size  # 保存视频大小信息（MB）
                     }
                     
+                    # 重要：只要检测到大视频（超过阈值），就必须设置 force_separate_send = True
+                    # 无论下载是否成功，大视频都应该单独发送
                     if has_large_video:
                         parse_result['has_large_video'] = True
-                        parse_result['force_separate_send'] = True
+                        parse_result['force_separate_send'] = True  # 强制单独发送
+                        if video_file_path:
+                            # 如果成功下载到缓存目录，使用文件路径而不是URL
+                            parse_result['video_files'] = [{'file_path': video_file_path}]
+                            # 注意：即使下载成功，也保留 direct_url 作为备用，但优先使用文件
+                            # parse_result['direct_url'] = None  # 不再设置为 None，保留作为备用
+                        # 如果下载失败，direct_url 仍然保留，可以通过 URL 方式发送，但仍然单独发送
                     
                     return parse_result
                 
@@ -403,6 +427,7 @@ class DouyinParser(BaseVideoParser):
         """
         构建媒体节点（视频或图片）
         优先使用下载的图片文件而不是URL，以避免QQ/NapCat无法识别文件类型的问题
+        如果解析结果中有 video_files（大视频已下载到缓存目录），优先使用文件方式构建节点
         
         Args:
             result: 解析结果
@@ -414,6 +439,15 @@ class DouyinParser(BaseVideoParser):
             List: 媒体节点列表
         """
         nodes = []
+        
+        # 如果结果中有 video_files（大视频已下载到缓存目录），优先使用文件方式
+        if result.get('video_files'):
+            return self._build_video_gallery_nodes_from_files(
+                result['video_files'],
+                sender_name,
+                sender_id,
+                is_auto_pack
+            )
         
         # 处理图片集（优先使用下载的文件）
         if result.get('is_gallery') and result.get('image_files'):

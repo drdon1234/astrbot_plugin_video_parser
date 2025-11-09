@@ -187,7 +187,8 @@ class ParserManager:
                         continue
                     
                     # 检查该链接是否有大视频（需要单独发送）
-                    link_has_large_video = result.get('force_separate_send', False)
+                    # 优先检查 force_separate_send，如果没有则检查 has_large_video
+                    link_has_large_video = result.get('force_separate_send', False) or result.get('has_large_video', False)
                     
                     # 处理图片文件
                     if result.get('image_files'):

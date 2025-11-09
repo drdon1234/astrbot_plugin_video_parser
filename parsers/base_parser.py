@@ -13,17 +13,29 @@ import re
 class BaseVideoParser(ABC):
     """视频解析器基类"""
     
-    def __init__(self, name: str, max_video_size_mb: float = 0.0):
+    def __init__(self, name: str, max_video_size_mb: float = 0.0, large_video_threshold_mb: float = 50.0, cache_dir: str = "/app/sharedFolder/video_parser/cache"):
         """
         初始化解析器
         
         Args:
             name: 解析器名称（用于显示）
             max_video_size_mb: 最大允许的视频大小(MB)，0表示不限制
+            large_video_threshold_mb: 大视频阈值(MB)，超过此大小的视频将单独发送，0表示不启用，最大不超过100MB
+            cache_dir: 视频缓存目录，用于大视频的缓存
         """
         self.name = name
         self.max_video_size_mb = max_video_size_mb
+        self.cache_dir = cache_dir
         self.semaphore = None  # 子类可以设置信号量来控制并发
+        # 大视频阈值（从配置读取，最大不超过100MB）
+        if large_video_threshold_mb > 0:
+            # 限制最大值为100MB（消息适配器硬性阈值）
+            self.large_video_threshold_mb = min(large_video_threshold_mb, 100.0)
+        else:
+            self.large_video_threshold_mb = 0.0
+        # 确保缓存目录存在
+        if cache_dir:
+            os.makedirs(cache_dir, exist_ok=True)
     
     @abstractmethod
     def can_parse(self, url: str) -> bool:
@@ -126,6 +138,51 @@ class BaseVideoParser(ABC):
             return True  # 无法获取大小时，允许通过
         return video_size <= self.max_video_size_mb
     
+    async def _download_large_video_to_cache(self, session: aiohttp.ClientSession, video_url: str, video_id: str, index: int = 0, headers: dict = None) -> Optional[str]:
+        """
+        下载大视频到缓存目录（用于超过大视频阈值的视频）
+        
+        Args:
+            session: aiohttp会话
+            video_url: 视频URL
+            video_id: 视频ID（用于生成文件名）
+            index: 视频索引（同一内容可能有多个视频）
+            headers: 请求头（可选）
+            
+        Returns:
+            文件路径，失败返回 None
+        """
+        if not self.cache_dir:
+            return None
+        
+        try:
+            request_headers = headers or {}
+            async with session.get(
+                video_url,
+                headers=request_headers,
+                timeout=aiohttp.ClientTimeout(total=300)  # 大视频下载可能需要更长时间
+            ) as response:
+                response.raise_for_status()
+                
+                # 生成文件名（使用视频ID和索引）
+                filename = f"{video_id}_{index}.mp4"
+                file_path = os.path.join(self.cache_dir, filename)
+                
+                # 如果文件已存在，直接返回
+                if os.path.exists(file_path):
+                    return os.path.normpath(file_path)
+                
+                # 下载视频内容
+                content = await response.read()
+                
+                # 写入缓存目录
+                with open(file_path, 'wb') as f:
+                    f.write(content)
+                
+                return os.path.normpath(file_path)
+        except Exception:
+            return None
+    
     def build_text_node(self, result: Dict[str, Any], sender_name: str, sender_id: Any, is_auto_pack: bool):
         """
         构建文本节点（标题、作者等信息）
@@ -151,6 +208,11 @@ class BaseVideoParser(ABC):
             text_parts.append(f"简介：{result['desc']}")
         if result.get('timestamp'):
             text_parts.append(f"发布时间：{result['timestamp']}")
+        
+        # 添加视频大小调试信息
+        if result.get('file_size_mb') is not None:
+            file_size_mb = result.get('file_size_mb')
+            text_parts.append(f"视频大小：{file_size_mb:.2f} MB")
         
         if result.get('video_url'):
             text_parts.append(f"原始链接：{result['video_url']}")

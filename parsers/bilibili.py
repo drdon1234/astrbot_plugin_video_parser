@@ -61,8 +61,8 @@ def av2bv(av: int) -> str:
 class BilibiliParser(BaseVideoParser):
     """B站视频解析器"""
     
-    def __init__(self, max_video_size_mb: float = 0.0):
-        super().__init__("B站", max_video_size_mb)
+    def __init__(self, max_video_size_mb: float = 0.0, large_video_threshold_mb: float = 50.0, cache_dir: str = "/app/sharedFolder/video_parser/cache"):
+        super().__init__("B站", max_video_size_mb, large_video_threshold_mb, cache_dir)
         self.semaphore = asyncio.Semaphore(10)
         # 统一的请求头
         self._default_headers = {
@@ -456,6 +456,66 @@ class BilibiliParser(BaseVideoParser):
         
         v = self.pick_best_video(dash_try.get("dash") or {})
         return (v.get("baseUrl") or v.get("base_url")) if v else None
+    
+    async def get_video_size(self, video_url: str, session: aiohttp.ClientSession, referer: str = None) -> Optional[float]:
+        """
+        获取视频文件大小(MB)（B站专用，需要Referer请求头）
+        
+        Args:
+            video_url: 视频URL
+            session: aiohttp会话
+            referer: 引用页面URL（可选，默认使用bilibili.com）
+            
+        Returns:
+            Optional[float]: 视频大小(MB)，如果无法获取则返回None
+        """
+        try:
+            # 使用B站的请求头，包含Referer
+            headers = self._default_headers.copy()
+            if referer:
+                headers["Referer"] = referer
+            
+            # 先尝试HEAD请求
+            async with session.head(video_url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                # 优先检查Content-Range（无论状态码，因为它包含完整文件大小）
+                content_range = resp.headers.get("Content-Range")
+                if content_range:
+                    # Content-Range格式: bytes 286523392-286526818/286526819
+                    # 提取最后一个数字（完整文件大小）
+                    match = re.search(r'/\s*(\d+)', content_range)
+                    if match:
+                        size_bytes = int(match.group(1))
+                        size_mb = size_bytes / (1024 * 1024)
+                        return size_mb
+                
+                # 如果没有Content-Range，检查Content-Length
+                content_length = resp.headers.get("Content-Length")
+                if content_length:
+                    size_bytes = int(content_length)
+                    size_mb = size_bytes / (1024 * 1024)
+                    return size_mb
+            
+            # 如果HEAD请求失败或没有Content-Length，尝试使用Range请求
+            # 发送一个Range请求来获取Content-Range头
+            headers["Range"] = "bytes=0-1"
+            async with session.get(video_url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                content_range = resp.headers.get("Content-Range")
+                if content_range:
+                    match = re.search(r'/\s*(\d+)', content_range)
+                    if match:
+                        size_bytes = int(match.group(1))
+                        size_mb = size_bytes / (1024 * 1024)
+                        return size_mb
+                
+                # 如果没有Content-Range，检查Content-Length
+                content_length = resp.headers.get("Content-Length")
+                if content_length:
+                    size_bytes = int(content_length)
+                    size_mb = size_bytes / (1024 * 1024)
+                    return size_mb
+        except Exception:
+            pass
+        return None
 
     async def parse(self, session: aiohttp.ClientSession, url: str) -> Optional[Dict[str, Any]]:
         """解析单个B站链接"""
@@ -527,8 +587,8 @@ class BilibiliParser(BaseVideoParser):
         if not direct_url:
             return None
 
-        # 检查视频大小
-        video_size = await self.get_video_size(direct_url, session)
+        # 检查视频大小（使用B站专用的get_video_size方法，传递referer）
+        video_size = await self.get_video_size(direct_url, session, referer=page_url)
         
         # 首先检查是否超过最大允许大小（max_video_size_mb）
         # 如果超过，跳过该视频，不下载
@@ -536,14 +596,6 @@ class BilibiliParser(BaseVideoParser):
             if video_size > self.max_video_size_mb:
                 return None  # 超过最大允许大小，跳过该视频
         
-        # 检查是否超过大视频阈值（100MB，硬编码）
-        # 如果视频大小超过100MB但不超过max_video_size_mb，将单独发送
-        has_large_video = False
-        if video_size is not None and video_size > 100.0:
-            # 如果设置了max_video_size_mb，确保不超过最大允许大小
-            if self.max_video_size_mb <= 0 or video_size <= self.max_video_size_mb:
-                has_large_video = True
-
         is_b23_short = urlparse(original_url).netloc.lower() == B23_HOST
         display_url = original_url if is_b23_short else page_url
         
@@ -556,10 +608,61 @@ class BilibiliParser(BaseVideoParser):
             "file_size_mb": video_size  # 保存视频大小信息（MB）
         }
         
-        if has_large_video:
-            result['has_large_video'] = True
-            result['force_separate_send'] = True
+        # 检查是否超过大视频阈值（从配置读取）
+        # 如果视频大小超过阈值但不超过max_video_size_mb，将下载到缓存目录并单独发送
+        # 重要：必须在构建result后立即检查，确保force_separate_send被设置
+        has_large_video = False
+        video_file_path = None
+        
+        if self.large_video_threshold_mb > 0 and video_size is not None and video_size > self.large_video_threshold_mb:
+            # 如果设置了max_video_size_mb，确保不超过最大允许大小
+            if self.max_video_size_mb <= 0 or video_size <= self.max_video_size_mb:
+                has_large_video = True
+                # 立即设置 force_separate_send，确保被正确识别
+                result['has_large_video'] = True
+                result['force_separate_send'] = True  # 强制单独发送
+                
+                # 下载大视频到缓存目录
+                # 生成视频ID用于文件名
+                if vtype == "ugc":
+                    video_id = ident.get("bvid") or ident.get("aid") or "bilibili"
+                else:
+                    video_id = f"ep_{ident.get('ep_id', 'pgc')}"
+                
+                video_file_path = await self._download_large_video_to_cache(
+                    session, 
+                    direct_url, 
+                    video_id, 
+                    index=p_index - 1,  # 使用分P索引
+                    headers=self._default_headers
+                )
+                
+                if video_file_path:
+                    # 如果成功下载到缓存目录，使用文件路径而不是URL
+                    result['video_files'] = [{'file_path': video_file_path}]
+                    # 注意：即使下载成功，也保留 direct_url 作为备用，但优先使用文件
+                    # result['direct_url'] = None  # 不再设置为 None，保留作为备用
+                # 如果下载失败，direct_url 仍然保留，可以通过 URL 方式发送，但仍然单独发送
         
         return result
+    
+    def build_media_nodes(self, result: Dict[str, Any], sender_name: str, sender_id: Any, is_auto_pack: bool) -> List:
+        """
+        构建媒体节点（视频或图片）
+        如果解析结果中有 video_files（大视频已下载到缓存目录），优先使用文件方式构建节点
+        """
+        from astrbot.api.message_components import Video
+        
+        # 如果结果中有 video_files（大视频已下载到缓存目录），优先使用文件方式
+        if result.get('video_files'):
+            return self._build_video_gallery_nodes_from_files(
+                result['video_files'],
+                sender_name,
+                sender_id,
+                is_auto_pack
+            )
+        
+        # 否则使用默认的URL方式
+        return super().build_media_nodes(result, sender_name, sender_id, is_auto_pack)
 
 
