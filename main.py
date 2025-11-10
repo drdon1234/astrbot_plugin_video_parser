@@ -9,7 +9,7 @@ import re
 import os
 
 
-@register("astrbot_plugin_video_parser", "drdon1234", "统一视频链接解析插件，支持B站、抖音等平台", "1.0.0")
+@register("astrbot_plugin_video_parser", "drdon1234", "聚合解析流媒体平台链接，转换为直链发送", "1.0.0")
 class VideoParserPlugin(Star):
 
     def __init__(self, context: Context, config: dict):
