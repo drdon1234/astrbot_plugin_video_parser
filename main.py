@@ -43,7 +43,8 @@ class VideoParserPlugin(Star):
         enable_twitter = parser_enable_settings.get("enable_twitter", True)
         enable_kuaishou = parser_enable_settings.get("enable_kuaishou", True)
         twitter_proxy_settings = config.get("twitter_proxy_settings", {})
-        use_proxy = twitter_proxy_settings.get("twitter_use_proxy", False)
+        use_image_proxy = twitter_proxy_settings.get("twitter_use_image_proxy", False)
+        use_video_proxy = twitter_proxy_settings.get("twitter_use_video_proxy", False)
         proxy_url = twitter_proxy_settings.get("twitter_proxy_url", "")
         parsers = []
         if enable_bilibili:
@@ -66,7 +67,8 @@ class VideoParserPlugin(Star):
             parsers.append(TwitterParser(
                 max_media_size_mb=max_media_size_mb,
                 large_media_threshold_mb=large_media_threshold_mb,
-                use_proxy=use_proxy,
+                use_image_proxy=use_image_proxy,
+                use_video_proxy=use_video_proxy,
                 proxy_url=proxy_url,
                 cache_dir=cache_dir,
                 pre_download_all_media=pre_download_all_media,

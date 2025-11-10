@@ -161,8 +161,8 @@
 <tbody>
 <tr>
 <td><strong>Twitter 代理</strong></td>
-<td>提高 Twitter 视频发送成功率</td>
-<td>需要稳定发送 Twitter 视频</td>
+<td>提高 Twitter 媒体发送成功率</td>
+<td>需要稳定发送 Twitter 媒体（推荐开启图片代理）</td>
 <td><code>twitter_proxy_settings</code></td>
 </tr>
 <tr>
@@ -185,15 +185,31 @@
 <details>
 <summary><b>🔧 Twitter 代理配置</b> (点击展开)</summary>
 
-**适用场景**：希望提高 Twitter 视频发送成功率
+**适用场景**：希望提高 Twitter 媒体发送成功率
+
+**重要说明**：
+- 📸 **图片 CDN 大多被墙**：Twitter 图片 CDN 在国内访问受限，建议开启图片代理以提升成功率
+- 🎬 **视频 CDN 几乎不受影响**：Twitter 视频 CDN 通常可以正常访问，建议不开启视频代理以节约流量
+- 🔗 **fxtwitter 接口无需代理**：插件使用的 fxtwitter API 接口不需要传入代理，会自动直连
 
 **配置方法**：
 1. 打开 "AstrBot WebUI" -> "插件管理" -> "视频链接直链解析器"
 2. 找到 `twitter_proxy_settings` 配置项
-3. 启用 `twitter_use_proxy` 并设置 `twitter_proxy_url`
+3. **推荐配置**：仅开启图片代理
+   - 启用 `twitter_use_image_proxy` 为 `true`
+   - 保持 `twitter_use_video_proxy` 为 `false`（关闭状态）
+   - 设置 `twitter_proxy_url` 为您的代理地址（图片和视频共用此代理地址）
 4. 代理格式：`http://host:port` 或 `socks5://host:port`
 
-**效果**：Twitter 视频和图片的下载成功率显著提升
+**配置项说明**：
+- `twitter_use_image_proxy`: 是否启用图片代理（推荐开启）
+- `twitter_use_video_proxy`: 是否启用视频代理（通常无需开启）
+- `twitter_proxy_url`: 代理地址（图片和视频共用）
+
+**效果**：
+- ✅ 图片下载成功率显著提升（开启图片代理后）
+- ✅ 视频下载通常无需代理即可正常访问
+- ✅ 节约代理流量（仅图片走代理，视频不走代理）
 </details>
 
 <details>

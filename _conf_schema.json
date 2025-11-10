@@ -94,16 +94,22 @@
         "description": "Twitter代理设置",
         "type": "object",
         "items": {
-            "twitter_use_proxy": {
-                "description": "Twitter解析是否使用代理",
+            "twitter_use_image_proxy": {
+                "description": "Twitter图片下载是否使用代理",
                 "type": "bool",
-                "hint": "启用后，Twitter解析和下载将通过代理进行",
+                "hint": "启用后，Twitter图片下载将通过代理进行。图片CDN大多被墙，建议开启以提升成功率",
+                "default": false
+            },
+            "twitter_use_video_proxy": {
+                "description": "Twitter视频下载是否使用代理",
+                "type": "bool",
+                "hint": "启用后，Twitter视频下载将通过代理进行。视频CDN几乎不受影响，通常无需开启以节约流量",
                 "default": false
             },
             "twitter_proxy_url": {
                 "description": "Twitter代理地址",
                 "type": "string",
-                "hint": "代理地址格式：http://host:port",
+                "hint": "代理地址格式：http://host:port 或 socks5://host:port。图片和视频共用此代理地址",
                 "default": ""
             }
         }

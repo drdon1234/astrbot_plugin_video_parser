@@ -13,20 +13,22 @@ from .base_parser import BaseVideoParser
 class TwitterParser(BaseVideoParser):
     """Twitter/X 视频解析器"""
 
-    def __init__(self, max_media_size_mb: float = 0.0, large_media_threshold_mb: float = 50.0, use_proxy: bool = False, proxy_url: str = None, cache_dir: str = "/app/sharedFolder/video_parser/cache", pre_download_all_media: bool = False, max_concurrent_downloads: int = 3):
+    def __init__(self, max_media_size_mb: float = 0.0, large_media_threshold_mb: float = 50.0, use_image_proxy: bool = False, use_video_proxy: bool = False, proxy_url: str = None, cache_dir: str = "/app/sharedFolder/video_parser/cache", pre_download_all_media: bool = False, max_concurrent_downloads: int = 3):
         """
         初始化 Twitter 解析器
         Args:
             max_media_size_mb: 最大允许的媒体大小(MB)，超过此大小的媒体将被跳过，0表示不限制
             large_media_threshold_mb: 大媒体阈值(MB)，超过此大小的媒体将单独发送，0表示不启用，最大不超过100MB
-            use_proxy: 是否使用代理
-            proxy_url: 代理地址（格式：http://host:port 或 socks5://host:port）
+            use_image_proxy: 是否使用图片代理
+            use_video_proxy: 是否使用视频代理
+            proxy_url: 代理地址（格式：http://host:port 或 socks5://host:port），图片和视频共用此代理地址
             cache_dir: 媒体文件缓存目录（通用缓存目录，用于Twitter视频和所有大媒体）
             pre_download_all_media: 是否预先下载所有媒体到本地
             max_concurrent_downloads: 最大并发下载数
         """
         super().__init__("Twitter/X", max_media_size_mb, large_media_threshold_mb, cache_dir, pre_download_all_media, max_concurrent_downloads)
-        self.use_proxy = use_proxy
+        self.use_image_proxy = use_image_proxy
+        self.use_video_proxy = use_video_proxy
         self.proxy_url = proxy_url
         self.semaphore = asyncio.Semaphore(5)
         self.headers = {
@@ -71,9 +73,15 @@ class TwitterParser(BaseVideoParser):
                 result_links.append(standardized_url)
         return result_links
 
-    def _get_proxy(self) -> Optional[str]:
-        """获取代理地址"""
-        if self.use_proxy and self.proxy_url:
+    def _get_image_proxy(self) -> Optional[str]:
+        """获取图片代理地址"""
+        if self.use_image_proxy and self.proxy_url:
+            return self.proxy_url
+        return None
+
+    def _get_video_proxy(self) -> Optional[str]:
+        """获取视频代理地址"""
+        if self.use_video_proxy and self.proxy_url:
             return self.proxy_url
         return None
 
@@ -91,7 +99,7 @@ class TwitterParser(BaseVideoParser):
             RuntimeError: 所有重试均失败后抛出异常
         """
         api_url = f"https://api.fxtwitter.com/status/{tweet_id}"
-        proxy = self._get_proxy()
+        # fxtwitter接口不需要传入代理
         last_exception = None
 
         for attempt in range(max_retries + 1):
@@ -99,8 +107,7 @@ class TwitterParser(BaseVideoParser):
                 async with session.get(
                     api_url,
                     headers=self.headers,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                    proxy=proxy
+                    timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
                     response.raise_for_status()
                     data = await response.json()
@@ -156,7 +163,7 @@ class TwitterParser(BaseVideoParser):
             Optional[float]: 视频大小(MB)，如果无法获取则返回None
         """
         try:
-            proxy = self._get_proxy()
+            proxy = self._get_video_proxy()
             headers = self.headers.copy()
             if referer:
                 headers['Referer'] = referer
@@ -204,7 +211,7 @@ class TwitterParser(BaseVideoParser):
             Optional[float]: 图片大小(MB)，如果无法获取则返回None
         """
         try:
-            proxy = self._get_proxy()
+            proxy = self._get_image_proxy()
             request_headers = headers or self.headers.copy()
             async with session.head(image_url, headers=request_headers, timeout=aiohttp.ClientTimeout(total=10), proxy=proxy) as resp:
                 content_range = resp.headers.get("Content-Range")
@@ -238,7 +245,8 @@ class TwitterParser(BaseVideoParser):
         Returns:
             文件路径，失败返回 None
         """
-        proxy = self._get_proxy()
+        # 根据媒体类型选择对应的代理
+        proxy = self._get_video_proxy() if is_video else self._get_image_proxy()
         suffix = ".mp4" if is_video else ".jpg"
         download_headers = self.headers.copy()
         if referer:
@@ -384,7 +392,7 @@ class TwitterParser(BaseVideoParser):
                                 'headers': self.headers,
                                 'referer': url,
                                 'default_referer': 'https://x.com/',
-                                'proxy': self._get_proxy()
+                                'proxy': self._get_image_proxy()
                             })
                         if media_items:
                             download_results = await self._pre_download_media(session, media_items, self.headers)
@@ -412,7 +420,7 @@ class TwitterParser(BaseVideoParser):
                                         is_video=False,
                                         referer=url,
                                         default_referer='https://x.com/',
-                                        proxy=self._get_proxy()
+                                        proxy=self._get_image_proxy()
                                     )
                             if not temp_file:
                                 temp_file = await self._download_media_to_file(session, image_url, tweet_id, idx, is_video=False, referer=url)
