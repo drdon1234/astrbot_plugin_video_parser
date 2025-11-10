@@ -18,6 +18,9 @@
   - 手动解析
   - 自动打包
   - 批量解析
+- 快速开始
+  - 开箱即用
+  - 功能增强（可选配置）
 - 配置建议
 - 使用建议
 - 已知问题
@@ -130,20 +133,123 @@
 
 ---
 
-## 配置建议
+## 快速开始
 
-- 如需解析 Twitter 视频或处理超过阈值的大视频，请务必配置有效的“视频缓存目录”  
-- 在墙内解析 Twitter 视频时，必须启用 Twitter 解析代理，并配置有效的代理地址  
+### 🎉 开箱即用
+
+下载插件后，**无需任何配置**即可使用：
+
+- ✅ **自动解析** B站、快手、抖音、Twitter/X 链接
+- ✅ **自动发送** 全部 100MB 以下的 B站、快手、抖音媒体
+- ✅ **自动发送** 大部分直连 CDN 的 Twitter 媒体
+
+> 💡 **提示**：插件安装后即可立即使用，所有基础功能都已默认启用，无需额外配置。
+
+### 🚀 功能增强（可选配置）
+
+根据您的需求，可以按需配置以下功能以提升体验：
+
+<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse;">
+<thead>
+<tr style="background-color: #f0f0f0;">
+<th>配置项</th>
+<th>功能说明</th>
+<th>适用场景</th>
+<th>配置位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Twitter 代理</strong></td>
+<td>提高 Twitter 视频发送成功率</td>
+<td>需要稳定发送 Twitter 视频</td>
+<td><code>twitter_proxy_settings</code></td>
+</tr>
+<tr>
+<td><strong>视频缓存目录</strong></td>
+<td>支持发送 100MB 以上的大视频</td>
+<td>需要发送大视频文件</td>
+<td><code>download_settings.cache_dir</code></td>
+</tr>
+<tr>
+<td><strong>预下载媒体</strong></td>
+<td>提高发送成功率，减少总下载时间</td>
+<td>需要更稳定的媒体发送</td>
+<td><code>download_settings.pre_download_media</code></td>
+</tr>
+</tbody>
+</table>
+
+#### 📋 详细配置说明
+
+<details>
+<summary><b>🔧 Twitter 代理配置</b> (点击展开)</summary>
+
+**适用场景**：希望提高 Twitter 视频发送成功率
+
+**配置方法**：
+1. 打开 "AstrBot WebUI" -> "插件管理" -> "视频链接直链解析器"
+2. 找到 `twitter_proxy_settings` 配置项
+3. 启用 `twitter_use_proxy` 并设置 `twitter_proxy_url`
+4. 代理格式：`http://host:port` 或 `socks5://host:port`
+
+**效果**：Twitter 视频和图片的下载成功率显著提升
+</details>
+
+<details>
+<summary><b>💾 视频缓存目录配置</b> (点击展开)</summary>
+
+**适用场景**：希望发送任何 100MB 以上大小的媒体
+
+**配置方法**：
+1. 打开 "AstrBot WebUI" -> "插件管理" -> "视频链接直链解析器"
+2. 找到 `download_settings` 配置项
+3. 设置 `cache_dir` 为一个有效的目录路径
+4. 例如：`/app/sharedFolder/video_parser/cache`（Linux）或 `D:\cache\video_parser`（Windows）
+
+**效果**：
+- 支持发送超过 100MB 的大视频
+- Twitter 视频会自动下载到缓存目录（Twitter 视频无法直接通过 URL 发送）
+- 大视频会在发送后自动清理，不会长期占用磁盘空间
+</details>
+
+<details>
+<summary><b>⚡ 预下载媒体配置</b> (点击展开)</summary>
+
+**适用场景**：希望提高发送成功率，减少总下载时间
+
+**配置方法**：
+1. 打开 "AstrBot WebUI" -> "插件管理" -> "视频链接直链解析器"
+2. 找到 `download_settings` 配置项
+3. 启用 `pre_download_media`
+4. 设置 `max_concurrent_downloads`（建议值：3-5）
+
+**效果**：
+- ✅ **提高发送成功率**：所有媒体文件在解析后立即下载到本地，发送时使用本地文件，避免发送时下载失败
+- ✅ **减少总下载时间**：使用并发下载，多个文件同时下载，总时间更短
+- ✅ **自动清理**：下载的文件在发送后立即清理，不会长期占用磁盘空间
+
+**注意事项**：
+- 需要同时配置 `cache_dir`（视频缓存目录）
+- 预下载会增加初始下载时间，但可以减少总发送时间
+- 并发下载数建议设置为 3-5，过多可能导致网络拥塞
+</details>
 
 ---
 
-## 使用建议
+## 配置建议
 
-- 在 “AstrBot WebUI” 中开启 “回复时引用消息” 功能，便于溯源  
-- 控制批量解析的链接数量，一次过多会导致消息集合在平台上的发送速度变慢  
-- 如需在任何 wechat 平台使用，请在 “插件管理” 中禁用 “是否将解析结果打包为消息集合”  
-- 建议将 `large_video_threshold_mb` 设置为 50MB 以下，以避免消息适配器的限制  
-- 如果遇到 Twitter 解析失败，可尝试配置代理设置  
+> 💡 **提示**：所有配置均为可选，插件开箱即用。根据实际需求按需配置即可。
+
+### 视频大小设置
+
+- 🔹 建议将 `large_video_threshold_mb` 设置为 100MB 以下，以避免消息适配器的硬编码限制  
+- 🔹 `max_video_size_mb` 设置为 0 表示不限制视频大小（默认值）
+
+### 其他建议
+
+- 🔹 如需在任何 wechat 平台使用，请在 "插件管理" 中禁用 "是否将解析结果打包为消息集合"  
+- 🔹 控制批量解析的链接数量，一次过多会导致消息集合在平台上的发送速度变慢  
 
 ---
 
