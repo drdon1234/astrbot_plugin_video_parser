@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 from .bilibili import BilibiliParser
 from .douyin import DouyinParser
-from .twitter import TwitterParser
 from .kuaishou import KuaishouParser
+from .xiaohongshu import XiaohongshuParser
+from .twitter import TwitterParser
 
 __all__ = [
     'BilibiliParser',
     'DouyinParser',
-    'TwitterParser',
-    'KuaishouParser'
+    'KuaishouParser',
+    'XiaohongshuParser',
+    'TwitterParser'
 ]

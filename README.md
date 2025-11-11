@@ -37,6 +37,11 @@
 <td>视频、图集</td>
 </tr>
 <tr>
+<td>小红书</td>
+<td>短链（<code>xhslink&#46;com/...</code>）<br>笔记长链（<code>www&#46;xiaohongshu&#46;com/explore/...</code>）<br>笔记长链（<code>www&#46;xiaohongshu&#46;com/discovery/item/...</code>）</td>
+<td>视频、图集</td>
+</tr>
+<tr>
 <td>推特</td>
 <td>twitter 链接（<code>twitter&#46;com/.../status/...</code>）<br>x 链接（<code>x&#46;com/.../status/...</code>）</td>
 <td>视频、图集</td>
@@ -75,8 +80,8 @@
 
 下载插件后，**无需配置** 即可：
 
-- ✅ **自动解析** B站、抖音、快手、推特链接
-- ✅ **下载并发送** 全部 100MB 以下的 B站、抖音、快手媒体
+- ✅ **自动解析** B站、抖音、快手、小红书、推特链接
+- ✅ **下载并发送** 全部 100MB 以下的 B站、抖音、快手、小红书媒体
 - ✅ **下载并发送** 大部分直连 CDN 的推特视频（图片需配置代理）
 
 ## 配置文档
@@ -215,6 +220,12 @@
 </tr>
 <tr>
 <td>是否启用快手解析器</td>
+<td>bool</td>
+<td>true</td>
+<td>-</td>
+</tr>
+<tr>
+<td>是否启用小红书解析器</td>
 <td>bool</td>
 <td>true</td>
 <td>-</td>

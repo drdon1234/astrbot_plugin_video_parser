@@ -12,8 +12,9 @@ from .parser_manager import ParserManager
 from .parsers import (
     BilibiliParser,
     DouyinParser,
-    TwitterParser,
-    KuaishouParser
+    KuaishouParser,
+    XiaohongshuParser,
+    TwitterParser
 )
 
 
@@ -72,11 +73,15 @@ class VideoParserPlugin(Star):
         parser_enable_settings = config.get("parser_enable_settings", {})
         enable_bilibili = parser_enable_settings.get("enable_bilibili", True)
         enable_douyin = parser_enable_settings.get("enable_douyin", True)
-        enable_twitter = parser_enable_settings.get("enable_twitter", True)
         enable_kuaishou = parser_enable_settings.get(
             "enable_kuaishou",
             True
         )
+        enable_xiaohongshu = parser_enable_settings.get(
+            "enable_xiaohongshu",
+            True
+        )
+        enable_twitter = parser_enable_settings.get("enable_twitter", True)
         twitter_proxy_settings = config.get("twitter_proxy_settings", {})
         use_image_proxy = twitter_proxy_settings.get(
             "twitter_use_image_proxy",
@@ -104,6 +109,22 @@ class VideoParserPlugin(Star):
                 pre_download_all_media=pre_download_all_media,
                 max_concurrent_downloads=max_concurrent_downloads
             ))
+        if enable_kuaishou:
+            parsers.append(KuaishouParser(
+                max_media_size_mb=max_media_size_mb,
+                large_media_threshold_mb=large_media_threshold_mb,
+                cache_dir=cache_dir,
+                pre_download_all_media=pre_download_all_media,
+                max_concurrent_downloads=max_concurrent_downloads
+            ))
+        if enable_xiaohongshu:
+            parsers.append(XiaohongshuParser(
+                max_media_size_mb=max_media_size_mb,
+                large_media_threshold_mb=large_media_threshold_mb,
+                cache_dir=cache_dir,
+                pre_download_all_media=pre_download_all_media,
+                max_concurrent_downloads=max_concurrent_downloads
+            ))
         if enable_twitter:
             parsers.append(TwitterParser(
                 max_media_size_mb=max_media_size_mb,
@@ -111,14 +132,6 @@ class VideoParserPlugin(Star):
                 use_image_proxy=use_image_proxy,
                 use_video_proxy=use_video_proxy,
                 proxy_url=proxy_url,
-                cache_dir=cache_dir,
-                pre_download_all_media=pre_download_all_media,
-                max_concurrent_downloads=max_concurrent_downloads
-            ))
-        if enable_kuaishou:
-            parsers.append(KuaishouParser(
-                max_media_size_mb=max_media_size_mb,
-                large_media_threshold_mb=large_media_threshold_mb,
                 cache_dir=cache_dir,
                 pre_download_all_media=pre_download_all_media,
                 max_concurrent_downloads=max_concurrent_downloads

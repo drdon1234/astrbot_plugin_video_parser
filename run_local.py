@@ -131,8 +131,9 @@ def _setup_package_structure():
     _parser_files = {
         "bilibili": "bilibili.py",
         "douyin": "douyin.py",
-        "twitter": "twitter.py",
         "kuaishou": "kuaishou.py",
+        "xiaohongshu": "xiaohongshu.py",
+        "twitter": "twitter.py",
     }
     
     for _parser_name, _parser_file in _parser_files.items():
@@ -197,7 +198,13 @@ from typing import Optional, Dict, Any
 
 # 导入解析器管理器
 from parser_manager import ParserManager
-from parsers import BilibiliParser, DouyinParser, TwitterParser, KuaishouParser
+from parsers import (
+    BilibiliParser,
+    DouyinParser,
+    KuaishouParser,
+    XiaohongshuParser,
+    TwitterParser
+)
 
 
 class LocalTestDouyinParser(DouyinParser):
@@ -428,6 +435,75 @@ class LocalTestKuaishouParser(KuaishouParser):
             raise RuntimeError(f"解析失败：{str(e)}")
 
 
+class LocalTestXiaohongshuParser(XiaohongshuParser):
+    """本地测试用的小红书解析器包装器，解析时不下载文件，只保存URL信息"""
+
+    async def parse(self, session: aiohttp.ClientSession, url: str) -> Optional[Dict[str, Any]]:
+        """
+        解析小红书链接，但不下载文件，只保存URL信息
+        Args:
+            session: aiohttp会话
+            url: 小红书链接
+        Returns:
+            解析结果字典，包含视频/图片URL但不包含文件路径
+        """
+        try:
+            normalized_url = self._normalize_url(url)
+
+            if normalized_url is None:
+                full_url = await self._get_redirect_url(session, url)
+            else:
+                full_url = normalized_url
+
+            html = await self._fetch_page(session, full_url)
+            initial_state = self._extract_initial_state(html)
+            note_info = self._parse_note_data(initial_state)
+
+            note_type = note_info.get("type", "normal")
+            author = note_info.get("author_name", "")
+            author_id = note_info.get("author_id", "")
+            if author and author_id:
+                author = f"{author}(主页id:{author_id})"
+            elif author:
+                author = author
+            elif author_id:
+                author = f"(主页id:{author_id})"
+
+            if note_type == "video":
+                video_url = note_info.get("video_url")
+                if video_url:
+                    # 本地测试版本跳过文件大小检查以加快速度
+                    video_size = None  # 跳过文件大小检查
+                    parse_result = {
+                        "video_url": url,  # 原始URL（可能是短链接）
+                        "page_url": full_url,  # 完整的小红书页面URL，用于下载时的referer
+                        "title": note_info.get("title", ""),
+                        "desc": note_info.get("desc", ""),
+                        "author": author,
+                        "timestamp": note_info.get("publish_time", ""),
+                        "direct_url": video_url,
+                        "file_size_mb": video_size
+                    }
+                    return parse_result
+            else:
+                images = note_info.get("image_urls", [])
+                if images:
+                    parse_result = {
+                        "video_url": url,  # 原始URL（可能是短链接）
+                        "page_url": full_url,  # 完整的小红书页面URL，用于下载时的referer
+                        "title": note_info.get("title", ""),
+                        "desc": note_info.get("desc", ""),
+                        "author": author,
+                        "timestamp": note_info.get("publish_time", ""),
+                        "images": images,
+                        "is_gallery": True
+                    }
+                    return parse_result
+            return None
+        except Exception as e:
+            raise RuntimeError(f"解析失败：{str(e)}")
+
+
 class LocalTestTwitterParser(TwitterParser):
     """本地测试用的Twitter解析器包装器，解析时不下载文件，只保存URL信息"""
 
@@ -549,17 +625,22 @@ def init_parsers(use_proxy=False, proxy_url=None):
             large_media_threshold_mb=50.0,
             cache_dir=None
         ),
+        LocalTestKuaishouParser(
+            max_media_size_mb=0.0,
+            large_media_threshold_mb=50.0,
+            cache_dir=None
+        ),
+        LocalTestXiaohongshuParser(
+            max_media_size_mb=0.0,
+            large_media_threshold_mb=50.0,
+            cache_dir=None
+        ),
         LocalTestTwitterParser(
             max_media_size_mb=0.0,
             large_media_threshold_mb=50.0,
             use_image_proxy=use_image_proxy,
             use_video_proxy=use_video_proxy,
             proxy_url=proxy_url,
-            cache_dir=None
-        ),
-        LocalTestKuaishouParser(
-            max_media_size_mb=0.0,
-            large_media_threshold_mb=50.0,
             cache_dir=None
         )
     ]
@@ -642,8 +723,19 @@ async def download_file(session: aiohttp.ClientSession, url: str, filepath: str,
         if 'Referer' not in default_headers:
             default_headers['Referer'] = 'https://x.com/'
     
+    # 对于小红书图片/视频，确保使用正确的referer
+    if 'xhscdn.com' in url:
+        if 'Referer' not in default_headers:
+            default_headers['Referer'] = 'https://www.xiaohongshu.com/'
+    
     # 判断是否为视频（根据URL或文件扩展名）
     is_video = '.mp4' in url.lower() or filepath.endswith('.mp4')
+    
+    # 对于视频，调整Sec-Fetch-Dest
+    if is_video:
+        default_headers['Sec-Fetch-Dest'] = 'video'
+    else:
+        default_headers['Sec-Fetch-Dest'] = 'image'
     
     for attempt in range(max_retries + 1):
         file_path = None
@@ -799,10 +891,23 @@ async def download_media(result: dict, url: str, download_dir: str, session: aio
             if 'video.twimg.com' in video_url or 'pbs.twimg.com' in video_url:
                 m = re.search(r'/status/(\d+)', url)
                 referer = f'https://x.com/status/{m.group(1)}' if m else 'https://x.com/'
+            elif 'xhscdn.com' in video_url:
+                # 小红书视频需要正确的referer
+                # 优先使用page_url（完整的小红书页面URL），如果没有则使用原始URL
+                page_url = result.get('page_url')
+                if page_url:
+                    referer = page_url
+                elif 'xhslink.com' in url:
+                    referer = 'https://www.xiaohongshu.com/'
+                else:
+                    referer = url
             
             if parser and hasattr(parser, 'headers'):
+                # 优先使用parser的headers（包含正确的UA）
                 headers.update(parser.headers)
-            headers['Referer'] = referer
+            # 确保Referer被设置
+            if referer:
+                headers['Referer'] = referer
             download_file_tasks.append(('video', idx, video_url, dest_path, referer, video_proxy, headers))
         
         image_urls = result.get('images', [])
@@ -830,10 +935,25 @@ async def download_media(result: dict, url: str, download_dir: str, session: aio
                     referer = url
                 elif 'kuaishou.com' in url or any('kspkg.com' in u for u in url_list):
                     referer = url
+                elif 'xhscdn.com' in primary_url:
+                    # 小红书图片需要正确的referer
+                    # 优先使用page_url（完整的小红书页面URL），如果没有则使用原始URL
+                    page_url = result.get('page_url')
+                    if page_url:
+                        referer = page_url
+                    elif 'xhslink.com' in url:
+                        # 短链接，使用默认的小红书referer
+                        referer = 'https://www.xiaohongshu.com/'
+                    else:
+                        # 长链接，使用原始URL作为referer
+                        referer = url
                 
                 if parser and hasattr(parser, 'headers'):
+                    # 优先使用parser的headers（包含正确的UA）
                     headers.update(parser.headers)
-                headers['Referer'] = referer
+                # 确保Referer被设置
+                if referer:
+                    headers['Referer'] = referer
                 download_file_tasks.append(('image', idx + 1, url_list, dest_path, referer, image_proxy, headers))
         elif valid_image_files:
             for idx, img_file in enumerate(valid_image_files, 1):
@@ -890,7 +1010,7 @@ async def main():
     """主函数"""
     print("=" * 80)
     print("视频链接解析测试工具")
-    print("支持的平台: B站、抖音、Twitter/X、快手")
+    print("支持的平台: B站、抖音、快手、小红书、Twitter/X")
     print("输入 'q' 退出程序")
     print("=" * 80)
     

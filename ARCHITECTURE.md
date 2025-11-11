@@ -19,6 +19,7 @@ astrbot_plugin_video_parser/
     ├── bilibili.py             # B站解析器
     ├── douyin.py               # 抖音解析器
     ├── kuaishou.py             # 快手解析器
+    ├── xiaohongshu.py          # 小红书解析器
     ├── twitter.py              # Twitter/X 解析器
     └── example.py              # 示例解析器（用于参考）
 ```
@@ -112,6 +113,13 @@ astrbot_plugin_video_parser/
 - **KuaishouParser** (`kuaishou.py`): 解析快手视频/图片集
   - 支持视频和图集解析
   - 支持媒体大小检测（视频和图片）
+  - 支持大媒体下载到缓存
+  - 支持预先下载所有媒体到缓存目录
+  - 优先检查预下载开关，避免重复下载
+
+- **XiaohongshuParser** (`xiaohongshu.py`): 解析小红书视频/图片集
+  - 支持视频和图集解析
+  - 支持媒体大小检测（视频和图片，需要 Referer 请求头）
   - 支持大媒体下载到缓存
   - 支持预先下载所有媒体到缓存目录
   - 优先检查预下载开关，避免重复下载
@@ -259,8 +267,9 @@ AstrBot插件主类：
 ### 5. parser_enable_settings (解析器启用设置)
 - **enable_bilibili**: 是否启用B站解析器（bool，默认 true）
 - **enable_douyin**: 是否启用抖音解析器（bool，默认 true）
-- **enable_twitter**: 是否启用Twitter/X解析器（bool，默认 true）
 - **enable_kuaishou**: 是否启用快手解析器（bool，默认 true）
+- **enable_xiaohongshu**: 是否启用小红书解析器（bool，默认 true）
+- **enable_twitter**: 是否启用Twitter/X解析器（bool，默认 true）
 
 ### 6. twitter_proxy_settings (Twitter代理设置)
 - **twitter_use_image_proxy**: Twitter图片下载是否使用代理（bool，默认 false）
