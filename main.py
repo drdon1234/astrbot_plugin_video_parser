@@ -27,7 +27,7 @@ from .parsers import (
     "astrbot_plugin_media_parser",
     "drdon1234",
     "聚合解析流媒体平台链接，转换为媒体直链发送",
-    "2.2.0"
+    "2.3.0"
 )
 class VideoParserPlugin(Star):
 
