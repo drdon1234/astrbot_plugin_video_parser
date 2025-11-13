@@ -42,8 +42,23 @@ def build_text_node(metadata: Dict[str, Any]) -> Optional[Plain]:
                     f"视频大小：最大 {max_video_size_mb:.1f} MB "
                     f"(共 {video_count} 个视频, 总计 {total_video_size_mb:.1f} MB)"
                 )
+    
+    has_valid_media = metadata.get('has_valid_media')
+    media_urls = metadata.get('media_urls', [])
+    
+    has_text_metadata = bool(
+        metadata.get('title') or 
+        metadata.get('author') or 
+        metadata.get('desc') or 
+        metadata.get('timestamp')
+    )
+    
+    if has_valid_media is False and media_urls and has_text_metadata:
+        text_parts.append("解析失败：直链内未找到有效媒体")
+    
     if metadata.get('url'):
         text_parts.append(f"原始链接：{metadata['url']}")
+    
     if not text_parts:
         return None
     desc_text = "\n".join(text_parts)
@@ -64,6 +79,18 @@ def build_media_nodes(
         媒体节点列表（Image或Video节点）
     """
     nodes = []
+    
+    if metadata.get('exceeds_max_size'):
+        return nodes
+    
+    has_valid_media = metadata.get('has_valid_media')
+    if has_valid_media is False:
+        return nodes
+    
+    if has_valid_media is None:
+        logger.warning(f"元数据中缺少has_valid_media字段，跳过媒体节点构建: {metadata.get('url', '')}")
+        return nodes
+    
     media_type = metadata.get('media_type', 'video')
     media_urls = metadata.get('media_urls', [])
     file_paths = metadata.get('file_paths', [])
