@@ -7,18 +7,18 @@ from .base_parser import BaseVideoParser
 
 
 class ExampleParser(BaseVideoParser):
-    """示例解析器。
+    """示例解析器
 
     这个类展示了如何实现一个新的视频解析器。
     可以复制此文件并修改以实现新的解析器。
     """
 
     def __init__(self):
-        """初始化示例解析器。"""
+        """初始化示例解析器"""
         super().__init__("示例平台")
 
     def can_parse(self, url: str) -> bool:
-        """判断是否可以解析此URL。
+        """判断是否可以解析此URL
 
         在此方法中实现URL识别逻辑，例如：检查URL是否包含特定域名。
 
@@ -33,7 +33,7 @@ class ExampleParser(BaseVideoParser):
         return False
 
     def extract_links(self, text: str) -> List[str]:
-        """从文本中提取该解析器可以处理的链接。
+        """从文本中提取该解析器可以处理的链接
 
         在此方法中实现链接提取逻辑，可以使用正则表达式匹配链接模式。
 
@@ -51,7 +51,7 @@ class ExampleParser(BaseVideoParser):
         session: aiohttp.ClientSession,
         url: str
     ) -> Optional[Dict[str, Any]]:
-        """解析单个视频链接。
+        """解析单个视频链接
 
         在此方法中实现具体的解析逻辑：
         1. 获取视频信息（标题、作者、描述等）

@@ -14,7 +14,7 @@ except ImportError:
 
 
 def check_cache_dir_available(cache_dir: str) -> bool:
-    """检查缓存目录是否可用（可写）。
+    """检查缓存目录是否可用（可写）
 
     Args:
         cache_dir: 缓存目录路径
@@ -41,7 +41,7 @@ def check_cache_dir_available(cache_dir: str) -> bool:
 
 
 def get_image_suffix(content_type: str = None, url: str = None) -> str:
-    """根据Content-Type或URL确定图片文件扩展名。
+    """根据Content-Type或URL确定图片文件扩展名
 
     Args:
         content_type: HTTP Content-Type头
@@ -75,7 +75,7 @@ def get_image_suffix(content_type: str = None, url: str = None) -> str:
 
 
 def cleanup_files(file_paths: List[str]) -> None:
-    """清理文件列表。
+    """清理文件列表
 
     Args:
         file_paths: 文件路径列表
@@ -94,7 +94,7 @@ def move_temp_file_to_cache(
     media_id: str,
     index: int
 ) -> Optional[str]:
-    """将临时文件移动到缓存目录。
+    """将临时文件移动到缓存目录
 
     Args:
         temp_file_path: 临时文件路径

@@ -23,7 +23,7 @@ from .file_manager import (
 
 
 class DownloadManager:
-    """下载管理器，负责管理视频下载流程。"""
+    """下载管理器，负责管理视频下载流程"""
 
     def __init__(
         self,
@@ -33,7 +33,7 @@ class DownloadManager:
         pre_download_all_media: bool = False,
         max_concurrent_downloads: int = 3
     ):
-        """初始化下载管理器。
+        """初始化下载管理器
 
         Args:
             max_video_size_mb: 最大允许的视频大小(MB)，0表示不限制
@@ -61,7 +61,7 @@ class DownloadManager:
         idx: int,
         media_url: str
     ) -> bool:
-        """判断指定索引的媒体是否为视频。
+        """判断指定索引的媒体是否为视频
 
         Args:
             metadata: 元数据字典
@@ -96,7 +96,7 @@ class DownloadManager:
         referer: str = None,
         proxy: str = None
     ) -> List[Dict[str, Any]]:
-        """构建媒体项列表。
+        """构建媒体项列表
 
         Args:
             metadata: 元数据字典
@@ -128,7 +128,7 @@ class DownloadManager:
         self,
         download_results: List[Dict[str, Any]]
     ) -> List[Optional[str]]:
-        """处理下载结果，转换为文件路径列表。
+        """处理下载结果，转换为文件路径列表
 
         Args:
             download_results: 下载结果列表
@@ -150,7 +150,7 @@ class DownloadManager:
         media_urls: List[str],
         metadata: Dict[str, Any]
     ) -> bool:
-        """检查下载结果中是否有有效媒体。
+        """检查下载结果中是否有有效媒体
 
         Args:
             download_results: 下载结果列表
@@ -177,7 +177,7 @@ class DownloadManager:
         target_urls: List[str],
         all_media_urls: List[str]
     ) -> List[Optional[float]]:
-        """从下载结果中提取指定URL的大小。
+        """从下载结果中提取指定URL的大小
 
         Args:
             download_results: 下载结果列表
@@ -221,7 +221,7 @@ class DownloadManager:
         metadata: Dict[str, Any] = None,
         media_type: str = None
     ) -> Dict[str, bool]:
-        """验证媒体URL列表，返回每个URL的验证结果。
+        """验证媒体URL列表，返回每个URL的验证结果
 
         Args:
             session: aiohttp会话
@@ -325,7 +325,7 @@ class DownloadManager:
         metadata: Dict[str, Any] = None,
         media_type: str = None
     ) -> bool:
-        """验证所有媒体URL是否有效。
+        """验证所有媒体URL是否有效
 
         Args:
             session: aiohttp会话
@@ -357,7 +357,7 @@ class DownloadManager:
         referer: str = None,
         proxy: str = None
     ) -> Dict[str, Any]:
-        """处理元数据，检查视频大小，确定使用网络直链还是本地文件。
+        """处理元数据，检查视频大小，确定使用网络直链还是本地文件
 
         Args:
             session: aiohttp会话
@@ -517,7 +517,7 @@ class DownloadManager:
             return metadata
 
         async def get_video_size_task(video_url: str) -> Optional[float]:
-            """获取单个视频的大小。
+            """获取单个视频的大小
 
             Args:
                 video_url: 视频URL
@@ -634,7 +634,7 @@ class DownloadManager:
         return metadata
 
     def _generate_media_id(self, url: str) -> str:
-        """根据URL生成媒体ID。
+        """根据URL生成媒体ID
 
         Args:
             url: 原始URL
@@ -664,7 +664,7 @@ class DownloadManager:
         referer: str = None,
         proxy: str = None
     ) -> List[Dict[str, Any]]:
-        """处理元数据列表。
+        """处理元数据列表
 
         Args:
             session: aiohttp会话

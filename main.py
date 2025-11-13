@@ -32,7 +32,7 @@ from .parsers import (
 class VideoParserPlugin(Star):
 
     def __init__(self, context: Context, config: dict):
-        """初始化插件。
+        """初始化插件
 
         Args:
             context: 上下文对象
@@ -129,11 +129,11 @@ class VideoParserPlugin(Star):
         self.twitter_proxy_url = proxy_url if (use_image_proxy or use_video_proxy) else None
 
     async def terminate(self):
-        """插件终止时的清理工作。"""
+        """插件终止时的清理工作"""
         pass
 
     def _should_parse(self, message_str: str) -> bool:
-        """判断是否应该解析消息。
+        """判断是否应该解析消息
 
         Args:
             message_str: 消息文本
@@ -149,7 +149,7 @@ class VideoParserPlugin(Star):
         return False
 
     def _get_sender_info(self, event: AstrMessageEvent) -> tuple:
-        """获取发送者信息。
+        """获取发送者信息
 
         Args:
             event: 消息事件对象
@@ -171,7 +171,7 @@ class VideoParserPlugin(Star):
         self,
         metadata: Dict[str, Any]
     ) -> tuple:
-        """根据元数据获取请求头和Referer。
+        """根据元数据获取请求头和Referer
 
         Args:
             metadata: 元数据字典
@@ -239,7 +239,7 @@ class VideoParserPlugin(Star):
         sender_name: str,
         sender_id: Any
     ):
-        """发送打包的结果（使用Nodes）。
+        """发送打包的结果（使用Nodes）
 
         Args:
             event: 消息事件对象
@@ -333,7 +333,7 @@ class VideoParserPlugin(Star):
         sender_name: str,
         sender_id: Any
     ):
-        """发送大媒体结果（单独发送）。
+        """发送大媒体结果（单独发送）
 
         Args:
             event: 消息事件对象
@@ -376,7 +376,7 @@ class VideoParserPlugin(Star):
         all_link_nodes: list,
         link_metadata: list
     ):
-        """发送非打包的结果（独立发送）。
+        """发送非打包的结果（独立发送）
 
         Args:
             event: 消息事件对象
@@ -417,7 +417,7 @@ class VideoParserPlugin(Star):
 
     @filter.event_message_type(EventMessageType.ALL)
     async def auto_parse(self, event: AstrMessageEvent):
-        """自动解析消息中的视频链接。
+        """自动解析消息中的视频链接
 
         Args:
             event: 消息事件对象
@@ -454,7 +454,7 @@ class VideoParserPlugin(Star):
                 return
             
             async def process_single_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
-                """处理单个元数据。
+                """处理单个元数据
 
                 Args:
                     metadata: 元数据字典

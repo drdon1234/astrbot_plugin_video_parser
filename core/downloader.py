@@ -29,7 +29,7 @@ def _build_request_headers(
     default_referer: str = None,
     custom_headers: dict = None
 ) -> dict:
-    """构建请求头。
+    """构建请求头
 
     Args:
         is_video: 是否为视频（True为视频，False为图片）
@@ -85,7 +85,7 @@ def _validate_content_type(
     content_type: str,
     is_video: bool = False
 ) -> bool:
-    """验证Content-Type是否为有效的媒体类型。
+    """验证Content-Type是否为有效的媒体类型
 
     Args:
         content_type: Content-Type值（已转换为小写）
@@ -110,7 +110,7 @@ async def _check_json_error_response(
     content_preview: bytes,
     media_url: str
 ) -> bool:
-    """检查内容预览是否为JSON错误响应。
+    """检查内容预览是否为JSON错误响应
 
     Args:
         content_preview: 内容预览（前64字节）
@@ -139,7 +139,7 @@ async def _validate_media_response(
     is_video: bool = False,
     allow_read_content: bool = True
 ) -> Tuple[bool, Optional[bytes]]:
-    """验证响应是否为有效的媒体响应。
+    """验证响应是否为有效的媒体响应
 
     Args:
         response: HTTP响应对象
@@ -182,7 +182,7 @@ async def _validate_media_response(
 def _extract_size_from_headers(
     response: aiohttp.ClientResponse
 ) -> Optional[float]:
-    """从响应头中提取媒体大小。
+    """从响应头中提取媒体大小
 
     Args:
         response: HTTP响应对象
@@ -212,7 +212,7 @@ async def _get_media_size_from_response(
     proxy: str = None,
     is_video: bool = True
 ) -> Optional[float]:
-    """获取媒体大小并验证是否为有效媒体（仅通过header判断）。
+    """获取媒体大小并验证是否为有效媒体（仅通过header判断）
 
     Args:
         session: aiohttp会话
@@ -269,7 +269,7 @@ async def get_video_size(
     headers: dict = None,
     proxy: str = None
 ) -> Optional[float]:
-    """获取视频文件大小。
+    """获取视频文件大小
 
     Args:
         session: aiohttp会话
@@ -290,7 +290,7 @@ async def validate_media_url(
     proxy: str = None,
     is_video: bool = True
 ) -> bool:
-    """验证媒体URL是否有效。
+    """验证媒体URL是否有效
 
     Args:
         session: aiohttp会话
@@ -316,7 +316,7 @@ async def _download_media_stream(
     file_path: str,
     content_preview: Optional[bytes] = None
 ) -> bool:
-    """下载媒体流到文件。
+    """下载媒体流到文件
 
     Args:
         response: HTTP响应对象
@@ -356,7 +356,7 @@ async def download_image_to_file(
     referer: str = None,
     default_referer: str = None
 ) -> Optional[str]:
-    """下载图片到临时文件。
+    """下载图片到临时文件
 
     Args:
         session: aiohttp会话
@@ -419,7 +419,7 @@ async def download_media_to_cache(
     default_referer: str = None,
     proxy: str = None
 ) -> Optional[Dict[str, Any]]:
-    """下载媒体到缓存目录。
+    """下载媒体到缓存目录
 
     Args:
         session: aiohttp会话
@@ -512,7 +512,7 @@ async def pre_download_media(
     cache_dir: str,
     max_concurrent: int = 3
 ) -> List[Dict[str, Any]]:
-    """预先下载所有媒体到本地。
+    """预先下载所有媒体到本地
 
     Args:
         session: aiohttp会话

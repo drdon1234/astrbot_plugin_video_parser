@@ -6,7 +6,7 @@
 
 
 class Config:
-    """配置常量类。"""
+    """配置常量类"""
     
     DEFAULT_TIMEOUT = 30
     VIDEO_SIZE_CHECK_TIMEOUT = 10

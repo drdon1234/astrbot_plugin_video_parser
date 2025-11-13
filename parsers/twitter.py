@@ -17,7 +17,7 @@ class TwitterParser(BaseVideoParser):
         use_video_proxy: bool = False,
         proxy_url: str = None
     ):
-        """初始化Twitter解析器。
+        """初始化Twitter解析器
 
         Args:
             use_image_proxy: 是否使用图片代理
@@ -39,7 +39,7 @@ class TwitterParser(BaseVideoParser):
         }
 
     def can_parse(self, url: str) -> bool:
-        """判断是否可以解析此URL。
+        """判断是否可以解析此URL
 
         Args:
             url: 视频链接
@@ -56,7 +56,7 @@ class TwitterParser(BaseVideoParser):
         return False
 
     def extract_links(self, text: str) -> List[str]:
-        """从文本中提取Twitter链接。
+        """从文本中提取Twitter链接
 
         Args:
             text: 输入文本
@@ -64,7 +64,7 @@ class TwitterParser(BaseVideoParser):
         Returns:
             Twitter链接列表
         """
-        result_links = []
+        result_links_set = set()
         seen_ids = set()
         pattern = (
             r'https?://(?:twitter\.com|x\.com)/'
@@ -82,11 +82,11 @@ class TwitterParser(BaseVideoParser):
                     original_url,
                     flags=re.IGNORECASE
                 )
-                result_links.append(standardized_url)
-        return result_links
+                result_links_set.add(standardized_url)
+        return list(result_links_set)
 
     def _get_image_proxy(self) -> Optional[str]:
-        """获取图片代理地址。
+        """获取图片代理地址
 
         Returns:
             图片代理地址，如果未启用返回None
@@ -96,7 +96,7 @@ class TwitterParser(BaseVideoParser):
         return None
 
     def _get_video_proxy(self) -> Optional[str]:
-        """获取视频代理地址。
+        """获取视频代理地址
 
         Returns:
             视频代理地址，如果未启用返回None
@@ -112,7 +112,7 @@ class TwitterParser(BaseVideoParser):
         max_retries: int = 3,
         retry_delay: float = 1.0
     ) -> Dict[str, Any]:
-        """使用FxTwitter API获取推特媒体直链（带重试机制）。
+        """使用FxTwitter API获取推特媒体直链（带重试机制）
 
         Args:
             session: aiohttp会话
@@ -192,7 +192,7 @@ class TwitterParser(BaseVideoParser):
         session: aiohttp.ClientSession,
         url: str
     ) -> Optional[Dict[str, Any]]:
-        """解析单个Twitter链接。
+        """解析单个Twitter链接
 
         Args:
             session: aiohttp会话

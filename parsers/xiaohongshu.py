@@ -19,10 +19,10 @@ ANDROID_UA = (
 
 
 class XiaohongshuParser(BaseVideoParser):
-    """小红书链接解析器。"""
+    """小红书链接解析器"""
 
     def __init__(self):
-        """初始化小红书解析器。"""
+        """初始化小红书解析器"""
         super().__init__("小红书")
         self.headers = {
             "User-Agent": ANDROID_UA,
@@ -32,7 +32,7 @@ class XiaohongshuParser(BaseVideoParser):
         self.semaphore = asyncio.Semaphore(10)
 
     def can_parse(self, url: str) -> bool:
-        """判断是否可以解析此URL。
+        """判断是否可以解析此URL
 
         Args:
             url: 视频链接
@@ -48,7 +48,7 @@ class XiaohongshuParser(BaseVideoParser):
         return False
 
     def extract_links(self, text: str) -> List[str]:
-        """从文本中提取小红书链接。
+        """从文本中提取小红书链接
 
         Args:
             text: 输入文本
@@ -56,15 +56,19 @@ class XiaohongshuParser(BaseVideoParser):
         Returns:
             小红书链接列表
         """
-        result_links = []
+        result_links_set = set()
         seen_urls = set()
+        
+        # 短链匹配
         short_pattern = r'https?://xhslink\.com/[^\s<>"\'()]+'
         short_links = re.findall(short_pattern, text, re.IGNORECASE)
         for link in short_links:
             normalized = link.lower()
             if normalized not in seen_urls:
                 seen_urls.add(normalized)
-                result_links.append(link)
+                result_links_set.add(link)
+        
+        # 长链匹配（正则已确保包含协议，无需额外检查）
         long_pattern = (
             r'https?://(?:www\.)?xiaohongshu\.com/'
             r'(?:explore|discovery/item)/[^\s<>"\'()]+'
@@ -74,13 +78,12 @@ class XiaohongshuParser(BaseVideoParser):
             normalized = link.lower()
             if normalized not in seen_urls:
                 seen_urls.add(normalized)
-                if not link.startswith("http://") and not link.startswith("https://"):
-                    link = "https://" + link
-                result_links.append(link)
-        return result_links
+                result_links_set.add(link)
+        
+        return list(result_links_set)
 
     def _clean_share_url(self, url: str) -> str:
-        """清理分享长链URL，删除source和xhsshare参数。
+        """清理分享长链URL，删除source和xhsshare参数
 
         Args:
             url: 原始URL
@@ -109,7 +112,7 @@ class XiaohongshuParser(BaseVideoParser):
         session: aiohttp.ClientSession,
         short_url: str
     ) -> str:
-        """获取短链接重定向后的完整URL。
+        """获取短链接重定向后的完整URL
 
         Args:
             session: aiohttp会话
@@ -141,7 +144,7 @@ class XiaohongshuParser(BaseVideoParser):
         session: aiohttp.ClientSession,
         url: str
     ) -> str:
-        """获取页面HTML内容。
+        """获取页面HTML内容
 
         Args:
             session: aiohttp会话
@@ -162,7 +165,7 @@ class XiaohongshuParser(BaseVideoParser):
                 )
 
     def _extract_initial_state(self, html: str) -> dict:
-        """从HTML中提取window.__INITIAL_STATE__的JSON数据。
+        """从HTML中提取window.__INITIAL_STATE__的JSON数据
 
         Args:
             html: HTML内容
@@ -251,7 +254,7 @@ class XiaohongshuParser(BaseVideoParser):
             raise RuntimeError(error_msg)
 
     def _clean_topic_tags(self, text: str) -> str:
-        """清理简介中的话题标签，将#标签[话题]#格式改为#标签。
+        """清理简介中的话题标签，将#标签[话题]#格式改为#标签
 
         Args:
             text: 原始文本
@@ -265,7 +268,7 @@ class XiaohongshuParser(BaseVideoParser):
         return re.sub(pattern, r'#\1', text)
 
     def _parse_note_data(self, data: dict) -> dict:
-        """从JSON数据中提取所需信息。
+        """从JSON数据中提取所需信息
 
         Args:
             data: JSON数据字典
@@ -348,7 +351,7 @@ class XiaohongshuParser(BaseVideoParser):
         session: aiohttp.ClientSession,
         url: str
     ) -> Optional[Dict[str, Any]]:
-        """解析单个小红书链接。
+        """解析单个小红书链接
 
         Args:
             session: aiohttp会话

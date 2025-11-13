@@ -11,10 +11,10 @@ from .base_parser import BaseVideoParser
 
 
 class DouyinParser(BaseVideoParser):
-    """抖音视频解析器。"""
+    """抖音视频解析器"""
 
     def __init__(self):
-        """初始化抖音解析器。"""
+        """初始化抖音解析器"""
         super().__init__("抖音")
         self.headers = {
             'User-Agent': (
@@ -29,7 +29,7 @@ class DouyinParser(BaseVideoParser):
         self.semaphore = asyncio.Semaphore(10)
 
     def can_parse(self, url: str) -> bool:
-        """判断是否可以解析此URL。
+        """判断是否可以解析此URL
 
         Args:
             url: 视频链接
@@ -39,12 +39,13 @@ class DouyinParser(BaseVideoParser):
         """
         if not url:
             return False
-        if 'v.douyin.com' in url or 'douyin.com' in url:
+        url_lower = url.lower()
+        if 'v.douyin.com' in url_lower or 'douyin.com' in url_lower:
             return True
         return False
 
     def extract_links(self, text: str) -> List[str]:
-        """从文本中提取抖音链接。
+        """从文本中提取抖音链接
 
         Args:
             text: 输入文本
@@ -52,45 +53,48 @@ class DouyinParser(BaseVideoParser):
         Returns:
             抖音链接列表
         """
-        result_links = []
+        result_links_set = set()
         seen_ids = set()
+        
+        # 短链匹配
         mobile_pattern = r'https?://v\.douyin\.com/[^\s]+'
         mobile_links = re.findall(mobile_pattern, text)
-        result_links.extend(mobile_links)
+        result_links_set.update(mobile_links)
+        
+        # note链接匹配
         note_pattern = r'https?://(?:www\.)?douyin\.com/note/(\d+)'
         note_matches = re.finditer(note_pattern, text)
         for match in note_matches:
             note_id = match.group(1)
             if note_id not in seen_ids:
                 seen_ids.add(note_id)
-                result_links.append(
-                    f"https://www.douyin.com/note/{note_id}"
-                )
+                result_links_set.add(f"https://www.douyin.com/note/{note_id}")
+        
+        # video链接匹配
         video_pattern = r'https?://(?:www\.)?douyin\.com/video/(\d+)'
         video_matches = re.finditer(video_pattern, text)
         for match in video_matches:
             video_id = match.group(1)
             if video_id not in seen_ids:
                 seen_ids.add(video_id)
-                result_links.append(
-                    f"https://www.douyin.com/video/{video_id}"
-                )
+                result_links_set.add(f"https://www.douyin.com/video/{video_id}")
+        
+        # 通用链接匹配（排除已匹配的note和video）
         web_pattern = r'https?://(?:www\.)?douyin\.com/[^\s]*?(\d{19})[^\s]*'
         web_matches = re.finditer(web_pattern, text)
         for match in web_matches:
             item_id = match.group(1)
             if item_id not in seen_ids:
-                seen_ids.add(item_id)
-                if ('/note/' not in match.group(0) and
-                        '/video/' not in match.group(0)):
-                    standardized_url = (
-                        f"https://www.douyin.com/video/{item_id}"
-                    )
-                    result_links.append(standardized_url)
-        return result_links
+                matched_url = match.group(0)
+                # 排除已通过专门模式匹配的链接
+                if '/note/' not in matched_url and '/video/' not in matched_url:
+                    seen_ids.add(item_id)
+                    result_links_set.add(f"https://www.douyin.com/video/{item_id}")
+        
+        return list(result_links_set)
 
     def _extract_media_id(self, url: str) -> str:
-        """从URL中提取媒体ID。
+        """从URL中提取媒体ID
 
         Args:
             url: 抖音URL
@@ -106,7 +110,7 @@ class DouyinParser(BaseVideoParser):
         return video_id_match.group(1) if video_id_match else "douyin"
 
     def extract_router_data(self, text: str) -> Optional[str]:
-        """从HTML中提取ROUTER_DATA。
+        """从HTML中提取ROUTER_DATA
 
         Args:
             text: HTML文本
@@ -139,7 +143,7 @@ class DouyinParser(BaseVideoParser):
         item_id: str,
         is_note: bool = False
     ) -> Optional[Dict[str, Any]]:
-        """获取视频/笔记信息。
+        """获取视频/笔记信息
 
         Args:
             session: aiohttp会话
@@ -269,7 +273,7 @@ class DouyinParser(BaseVideoParser):
         session: aiohttp.ClientSession,
         url: str
     ) -> str:
-        """获取重定向后的URL。
+        """获取重定向后的URL
 
         Args:
             session: aiohttp会话
@@ -287,7 +291,7 @@ class DouyinParser(BaseVideoParser):
         session: aiohttp.ClientSession,
         url: str
     ) -> Optional[Dict[str, Any]]:
-        """解析单个抖音链接。
+        """解析单个抖音链接
 
         Args:
             session: aiohttp会话

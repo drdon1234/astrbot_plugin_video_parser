@@ -10,10 +10,10 @@ import aiohttp
 
 
 class BaseVideoParser(ABC):
-    """视频解析器基类，只负责解析URL返回元数据。"""
+    """视频解析器基类，只负责解析URL返回元数据"""
 
     def __init__(self, name: str):
-        """初始化视频解析器基类。
+        """初始化视频解析器基类
 
         Args:
             name: 解析器名称
@@ -22,7 +22,7 @@ class BaseVideoParser(ABC):
 
     @abstractmethod
     def can_parse(self, url: str) -> bool:
-        """判断是否可以解析此URL。
+        """判断是否可以解析此URL
 
         Args:
             url: 视频链接
@@ -34,7 +34,7 @@ class BaseVideoParser(ABC):
 
     @abstractmethod
     def extract_links(self, text: str) -> List[str]:
-        """从文本中提取链接。
+        """从文本中提取链接
 
         Args:
             text: 输入文本
@@ -50,7 +50,7 @@ class BaseVideoParser(ABC):
         session: aiohttp.ClientSession,
         url: str
     ) -> Optional[Dict[str, Any]]:
-        """解析单个视频链接。
+        """解析单个视频链接
 
         Args:
             session: aiohttp会话

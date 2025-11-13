@@ -62,7 +62,7 @@ def init_parsers(use_proxy: bool = False, proxy_url: str = None) -> List:
 
 
 def print_metadata(metadata: Dict[str, Any], url: str, parser_name: str):
-    """打印解析后的元数据。
+    """打印解析后的元数据
 
     Args:
         metadata: 元数据字典
@@ -368,7 +368,7 @@ async def download_media_concurrent(
     proxy_url: str = None,
     max_concurrent: int = 5
 ):
-    """并发下载多个媒体文件。
+    """并发下载多个媒体文件
 
     Args:
         metadata_list: 元数据列表
@@ -389,7 +389,7 @@ async def download_media_concurrent(
     semaphore = asyncio.Semaphore(max_concurrent)
     
     async def download_single_metadata(metadata):
-        """下载单个元数据的媒体。
+        """下载单个元数据的媒体
 
         Args:
             metadata: 元数据字典
@@ -438,7 +438,7 @@ async def parse_text(
             unique_links_with_parser.append((link, parser))
     
     async def parse_one_link(url: str, parser) -> Tuple[str, Dict[str, Any], Optional[str]]:
-        """解析单个链接。
+        """解析单个链接
 
         Args:
             url: 链接URL
@@ -497,7 +497,7 @@ async def parse_text(
 
 
 async def main():
-    """主函数，运行交互式测试工具。"""
+    """主函数，运行交互式测试工具"""
     print("=" * 80)
     print("视频链接解析测试工具")
     print("支持的平台: B站、抖音、快手、小红书、Twitter/X")

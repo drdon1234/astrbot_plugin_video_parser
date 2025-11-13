@@ -11,7 +11,7 @@ from astrbot.api.message_components import Plain, Image, Video, Node, Nodes
 
 
 def build_text_node(metadata: Dict[str, Any]) -> Optional[Plain]:
-    """构建文本节点。
+    """构建文本节点
 
     Args:
         metadata: 元数据字典
@@ -56,6 +56,9 @@ def build_text_node(metadata: Dict[str, Any]) -> Optional[Plain]:
     if has_valid_media is False and media_urls and has_text_metadata:
         text_parts.append("解析失败：直链内未找到有效媒体")
     
+    if metadata.get('error'):
+        text_parts.append(f"解析失败：{metadata['error']}")
+    
     if metadata.get('url'):
         text_parts.append(f"原始链接：{metadata['url']}")
     
@@ -69,7 +72,7 @@ def build_media_nodes(
     metadata: Dict[str, Any],
     use_local_files: bool = False
 ) -> List[Union[Image, Video]]:
-    """构建媒体节点。
+    """构建媒体节点
 
     Args:
         metadata: 元数据字典
@@ -232,7 +235,7 @@ def build_nodes_for_link(
     sender_name: str = "",
     sender_id: Any = None
 ) -> List[Union[Plain, Image, Video]]:
-    """构建单个链接的节点列表。
+    """构建单个链接的节点列表
 
     Args:
         metadata: 元数据字典
@@ -256,7 +259,7 @@ def build_nodes_for_link(
 
 
 def is_pure_image_gallery(nodes: List[Union[Plain, Image, Video]]) -> bool:
-    """判断节点列表是否是纯图片图集。
+    """判断节点列表是否是纯图片图集
 
     Args:
         nodes: 节点列表
@@ -282,7 +285,7 @@ def build_all_nodes(
     sender_id: Any,
     large_video_threshold_mb: float = 0.0
 ) -> Tuple[List[List[Node]], List[Dict], List[str], List[str]]:
-    """构建所有链接的节点，处理消息打包逻辑。
+    """构建所有链接的节点，处理消息打包逻辑
 
     Args:
         metadata_list: 元数据列表
