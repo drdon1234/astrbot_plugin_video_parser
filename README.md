@@ -1,27 +1,5 @@
 # 聚合解析流媒体平台链接，转换为媒体直链发送
 
-<style>
-table.config-table {
-  border-collapse: collapse;
-  width: 100%;
-  border: 1px solid #ddd;
-}
-table.config-table th,
-table.config-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
-}
-table.config-table thead tr {
-  background-color: #f5f5f5;
-}
-table.config-table th {
-  text-align: center;
-}
-table.config-table td.center {
-  text-align: center;
-}
-</style>
-
 ## 使用说明
 
 ### 🎉 开箱即用
@@ -318,3 +296,4 @@ table.config-table td.center {
 - **抖音解析方法**参考自：CSDN 博客文章  
   [文章链接](https://blog.csdn.net/qq_53153535/article/details/141297614)
 - **推特解析**使用免费第三方服务：fxtwitter（GitHub 项目 [FxEmbed](https://github.com/FxEmbed/FxEmbed)）
+
