@@ -177,7 +177,7 @@ table.config-table td.center {
 <tr>
 <td>最大允许发送的视频大小(MB)</td>
 <td class="center"><code>float</code></td>
-<td class="center"><code>0.0</code></td>
+<td class="center"><code>500.0</code></td>
 <td>超过此大小的视频将被跳过，不下载也不发送。设置为0表示不限制</td>
 </tr>
 <tr>
