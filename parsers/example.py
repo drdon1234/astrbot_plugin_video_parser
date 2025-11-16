@@ -60,14 +60,13 @@ class ExampleParser(BaseVideoParser):
 
         返回的字典应包含以下字段（根据实际情况选择）：
         - url: 原始url（必需）
-        - media_type: 媒体类型: "video", "image", "gallery"（必需）
         - title: 标题（可选）
         - author: 作者（可选）
         - desc: 简介（可选）
         - timestamp: 发布时间（可选）
-        - media_urls: 媒体直链列表（必需）
-        - thumb_url: 封面图URL（可选）
-        - 其他平台特定字段（如image_url_lists等）
+        - video_urls: 视频URL列表，每个元素是单个媒体的可用URL列表（List[List[str]]），即使只有一条直链也要是列表的列表（必需，可为空列表）
+        - image_urls: 图片URL列表，每个元素是单个媒体的可用URL列表（List[List[str]]），即使只有一条直链也要是列表的列表（必需，可为空列表）
+        - 其他平台特定字段
 
         Args:
             session: aiohttp会话
@@ -86,13 +85,12 @@ class ExampleParser(BaseVideoParser):
             #     raise RuntimeError(f"无法解析此URL: {url}")
             # return {
             #     "url": url,
-            #     "media_type": "video",
             #     "title": result.get("title", ""),
             #     "author": result.get("author", ""),
             #     "desc": result.get("desc", ""),
             #     "timestamp": result.get("timestamp", ""),
-            #     "media_urls": [result.get("video_url")],
-            #     "thumb_url": result.get("thumb_url"),
+            #     "video_urls": [[result.get("video_url")]] if result.get("video_url") else [],
+            #     "image_urls": [],
             # }
             return None
         except Exception as e:

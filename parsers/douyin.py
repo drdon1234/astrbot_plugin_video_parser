@@ -216,12 +216,8 @@ class DouyinParser(BaseVideoParser):
                         image_url_lists.append([])
                 is_gallery = len(images) > 0
                 video_url = None
-                thumb_url = None
                 if not is_gallery and 'video' in item_list:
                     video_info_item = item_list['video']
-                    if ('cover' in video_info_item and
-                            video_info_item['cover'].get('url_list')):
-                        thumb_url = video_info_item['cover']['url_list'][0]
                     if ('play_addr' in video_info_item and
                             'uri' in video_info_item['play_addr']):
                         video = video_info_item['play_addr']['uri']
@@ -234,13 +230,6 @@ class DouyinParser(BaseVideoParser):
                                 f'https://www.douyin.com/aweme/v1/play/'
                                 f'?video_id={video}'
                             )
-                elif is_gallery and 'video' in item_list:
-                    video_info_item = item_list['video']
-                    if ('cover' in video_info_item and
-                            video_info_item['cover'].get('url_list')):
-                        thumb_url = video_info_item['cover']['url_list'][0]
-                if is_gallery and not thumb_url and images:
-                    thumb_url = images[0]
                 author = nickname
                 if unique_id:
                     author = (
@@ -254,7 +243,6 @@ class DouyinParser(BaseVideoParser):
                     'unique_id': unique_id,
                     'author': author,
                     'timestamp': timestamp,
-                    'thumb_url': thumb_url,
                     'video_url': video_url,
                     'images': images,
                     'image_url_lists': image_url_lists,
@@ -343,7 +331,6 @@ class DouyinParser(BaseVideoParser):
             images = result.get('images', [])
             image_url_lists = result.get('image_url_lists', [])
             video_url = result.get('video_url')
-            thumb_url = result.get('thumb_url')
             title = result.get('title', '')
             author = result.get('author', result.get('nickname', ''))
             timestamp = result.get('timestamp', '')
@@ -354,21 +341,20 @@ class DouyinParser(BaseVideoParser):
                 display_url = url
             
             if is_gallery:
-                media_urls = []
-                if images:
-                    for idx, primary_url in enumerate(images):
-                        media_urls.append(primary_url)
+                image_urls = []
+                if image_url_lists:
+                    for url_list in image_url_lists:
+                        if url_list:
+                            image_urls.append(url_list)
                 
                 return {
                     "url": display_url,
-                    "media_type": "gallery",
                     "title": title,
                     "author": author,
                     "desc": "",
                     "timestamp": timestamp,
-                    "media_urls": media_urls,
-                    "thumb_url": thumb_url,
-                    "image_url_lists": image_url_lists,
+                    "video_urls": [],
+                    "image_urls": image_urls,
                 }
             else:
                 if not video_url:
@@ -376,11 +362,10 @@ class DouyinParser(BaseVideoParser):
                 
                 return {
                     "url": display_url,
-                    "media_type": "video",
                     "title": title,
                     "author": author,
                     "desc": "",
                     "timestamp": timestamp,
-                    "media_urls": [video_url],
-                    "thumb_url": thumb_url,
+                    "video_urls": [[video_url]],
+                    "image_urls": [],
                 }

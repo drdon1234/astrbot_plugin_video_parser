@@ -229,18 +229,12 @@ class TwitterParser(BaseVideoParser):
                 raise RuntimeError("解析失败：推文不包含图片或视频")
             
             video_urls = []
-            video_thumb_urls = []
             image_urls = []
             
             for video_info in videos:
                 video_url = video_info.get('url')
                 if video_url:
                     video_urls.append(video_url)
-                    thumbnail = video_info.get('thumbnail', '')
-                    if thumbnail:
-                        video_thumb_urls.append(thumbnail)
-                    else:
-                        video_thumb_urls.append(None)
             
             image_urls = [img for img in images if img]
             
@@ -248,38 +242,25 @@ class TwitterParser(BaseVideoParser):
             has_images = len(image_urls) > 0
             
             if has_videos and has_images:
-                media_urls = video_urls + image_urls
-                media_types = ['video'] * len(video_urls) + ['image'] * len(image_urls)
-                
                 return {
                     "url": url,
-                    "media_type": "mixed",
                     "title": text[:100] if text else "Twitter 推文",
                     "author": author,
                     "desc": text,
                     "timestamp": timestamp,
-                    "media_urls": media_urls,
-                    "video_urls": video_urls,
-                    "image_urls": image_urls,
-                    "thumb_url": video_thumb_urls[0] if video_thumb_urls and video_thumb_urls[0] else (image_urls[0] if image_urls else None),
-                    "video_thumb_urls": video_thumb_urls,
-                    "media_types": media_types,
+                    "video_urls": [[url] for url in video_urls],
+                    "image_urls": [[url] for url in image_urls],
                     "is_twitter_video": True,
                 }
             elif has_videos:
-                media_urls = video_urls
-                
                 return {
                     "url": url,
-                    "media_type": "video",
                     "title": text[:100] if text else "Twitter 推文",
                     "author": author,
                     "desc": text,
                     "timestamp": timestamp,
-                    "media_urls": media_urls,
-                    "video_urls": video_urls,
-                    "thumb_url": video_thumb_urls[0] if video_thumb_urls and video_thumb_urls[0] else None,
-                    "video_thumb_urls": video_thumb_urls,
+                    "video_urls": [[url] for url in video_urls],
+                    "image_urls": [],
                     "is_twitter_video": True,
                 }
             else:
@@ -288,13 +269,11 @@ class TwitterParser(BaseVideoParser):
                 
                 return {
                     "url": url,
-                    "media_type": "gallery",
                     "title": text[:100] if text else "Twitter 推文",
                     "author": author,
                     "desc": text,
                     "timestamp": timestamp,
-                    "media_urls": image_urls,
-                    "image_urls": image_urls,
-                    "thumb_url": image_urls[0] if image_urls else None,
+                    "video_urls": [],
+                    "image_urls": [[url] for url in image_urls],
                     "is_twitter_video": False,
                 }

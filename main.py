@@ -18,6 +18,7 @@ from .parsers import (
     BilibiliParser,
     DouyinParser,
     KuaishouParser,
+    WeiboParser,
     XiaohongshuParser,
     TwitterParser
 )
@@ -80,6 +81,10 @@ class VideoParserPlugin(Star):
             "enable_kuaishou",
             True
         )
+        enable_weibo = parser_enable_settings.get(
+            "enable_weibo",
+            True
+        )
         enable_xiaohongshu = parser_enable_settings.get(
             "enable_xiaohongshu",
             True
@@ -103,6 +108,8 @@ class VideoParserPlugin(Star):
             parsers.append(DouyinParser())
         if enable_kuaishou:
             parsers.append(KuaishouParser())
+        if enable_weibo:
+            parsers.append(WeiboParser())
         if enable_xiaohongshu:
             parsers.append(XiaohongshuParser())
         if enable_twitter:
@@ -206,6 +213,16 @@ class VideoParserPlugin(Star):
                     'Chrome/116.0.0.0 Mobile Safari/537.36'
                 ),
                 'Referer': 'https://www.douyin.com/'
+            }
+            referer = url
+        elif 'weibo.com' in url or 'weibo.cn' in url:
+            headers = {
+                'User-Agent': (
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                    'AppleWebKit/537.36 (KHTML, like Gecko) '
+                    'Chrome/120.0.0.0 Safari/537.36'
+                ),
+                'Referer': 'https://weibo.com/'
             }
             referer = url
         elif 'xiaohongshu.com' in url or 'xhslink.com' in url:

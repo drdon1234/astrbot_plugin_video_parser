@@ -398,13 +398,12 @@ class XiaohongshuParser(BaseVideoParser):
 
                 return {
                     "url": url,
-                    "media_type": "video",
                     "title": title,
                     "author": author,
                     "desc": desc,
                     "timestamp": publish_time,
-                    "media_urls": [video_url],
-                    "thumb_url": None,
+                    "video_urls": [[video_url]],
+                    "image_urls": [],
                     "page_url": full_url,
                 }
             else:
@@ -413,12 +412,11 @@ class XiaohongshuParser(BaseVideoParser):
 
                 return {
                     "url": url,
-                    "media_type": "gallery",
                     "title": title,
                     "author": author,
                     "desc": desc,
                     "timestamp": publish_time,
-                    "media_urls": image_urls,
-                    "thumb_url": None,
+                    "video_urls": [],
+                    "image_urls": [[url] for url in image_urls],
                     "page_url": full_url,
                 }

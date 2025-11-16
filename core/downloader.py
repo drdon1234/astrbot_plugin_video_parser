@@ -516,13 +516,13 @@ async def pre_download_media(
 
     Args:
         session: aiohttp会话
-        media_items: 媒体项列表，每个项包含url、media_id、index、
+        media_items: 媒体项列表，每个项包含url_list（URL列表）、media_id、index、
             is_video、headers、referer、default_referer、proxy等字段
         cache_dir: 缓存目录路径
         max_concurrent: 最大并发下载数
 
     Returns:
-        下载结果列表，每个项包含url、file_path、success、index等字段
+        下载结果列表，每个项包含url（第一个URL）、file_path、success、index等字段
     """
     if not cache_dir or not media_items:
         return []
@@ -532,7 +532,7 @@ async def pre_download_media(
     async def download_one(item: Dict[str, Any]) -> Dict[str, Any]:
         async with semaphore:
             try:
-                url = item.get('url')
+                url_list = item.get('url_list', [])
                 media_id = item.get('media_id', 'media')
                 index = item.get('index', 0)
                 is_video = item.get('is_video', True)
@@ -541,48 +541,79 @@ async def pre_download_media(
                 item_default_referer = item.get('default_referer')
                 item_proxy = item.get('proxy')
 
-                if not url:
+                if not url_list or not isinstance(url_list, list):
                     return {
-                        'url': url,
+                        'url': url_list[0] if url_list else None,
                         'file_path': None,
                         'success': False,
                         'index': index
                     }
 
-                result = await download_media_to_cache(
-                    session,
-                    url,
-                    cache_dir,
-                    media_id,
-                    index,
-                    is_video,
-                    item_headers,
-                    item_referer,
-                    item_default_referer,
-                    item_proxy
-                )
-                if result:
-                    return {
-                        'url': url,
-                        'file_path': result.get('file_path'),
-                        'size_mb': result.get('size_mb'),
-                        'success': True,
-                        'index': index
-                    }
+                # 新的重试逻辑
+                # 如果只有一条直链，重试一次（总共尝试2次）
+                # 如果有多条直链，遍历列表直到成功，不对同一条URL重试
+                if len(url_list) == 1:
+                    # 单条直链：重试一次
+                    url = url_list[0]
+                    for attempt in range(2):
+                        result = await download_media_to_cache(
+                            session,
+                            url,
+                            cache_dir,
+                            media_id,
+                            index,
+                            is_video,
+                            item_headers,
+                            item_referer,
+                            item_default_referer,
+                            item_proxy
+                        )
+                        if result:
+                            return {
+                                'url': url,
+                                'file_path': result.get('file_path'),
+                                'size_mb': result.get('size_mb'),
+                                'success': True,
+                                'index': index
+                            }
                 else:
-                    return {
-                        'url': url,
-                        'file_path': None,
-                        'size_mb': None,
-                        'success': False,
-                        'index': index
-                    }
-            except Exception as e:
-                url = item.get('url', '')
-                index = item.get('index', 0)
-                logger.warning(f"预下载媒体失败: {url}, 错误: {e}")
+                    # 多条直链：遍历列表直到成功
+                    for url in url_list:
+                        result = await download_media_to_cache(
+                            session,
+                            url,
+                            cache_dir,
+                            media_id,
+                            index,
+                            is_video,
+                            item_headers,
+                            item_referer,
+                            item_default_referer,
+                            item_proxy
+                        )
+                        if result:
+                            return {
+                                'url': url_list[0],  # 返回第一个URL作为标识
+                                'file_path': result.get('file_path'),
+                                'size_mb': result.get('size_mb'),
+                                'success': True,
+                                'index': index
+                            }
+                
+                # 所有尝试都失败
                 return {
-                    'url': url,
+                    'url': url_list[0] if url_list else None,
+                    'file_path': None,
+                    'size_mb': None,
+                    'success': False,
+                    'index': index
+                }
+            except Exception as e:
+                url_list = item.get('url_list', [])
+                index = item.get('index', 0)
+                logger.warning(f"预下载媒体失败: {url_list[0] if url_list else 'unknown'}, 错误: {e}")
+                return {
+                    'url': url_list[0] if url_list else None,
                     'file_path': None,
                     'success': False,
                     'index': index,
@@ -596,8 +627,9 @@ async def pre_download_media(
     for i, result in enumerate(results):
         if isinstance(result, Exception):
             item = media_items[i] if i < len(media_items) else {}
+            url_list = item.get('url_list', [])
             processed_results.append({
-                'url': item.get('url', ''),
+                'url': url_list[0] if url_list else None,
                 'file_path': None,
                 'success': False,
                 'index': item.get('index', i),
@@ -607,8 +639,9 @@ async def pre_download_media(
             processed_results.append(result)
         else:
             item = media_items[i] if i < len(media_items) else {}
+            url_list = item.get('url_list', [])
             processed_results.append({
-                'url': item.get('url', ''),
+                'url': url_list[0] if url_list else None,
                 'file_path': None,
                 'success': False,
                 'index': item.get('index', i),

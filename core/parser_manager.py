@@ -142,8 +142,8 @@ class ParserManager:
                 metadata_list.append({
                     'url': url,
                     'error': str(result),
-                    'media_type': 'error',
-                    'media_urls': []
+                    'video_urls': [],
+                    'image_urls': []
                 })
             elif result:
                 metadata_list.append(result)

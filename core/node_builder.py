@@ -29,13 +29,13 @@ def build_text_node(metadata: Dict[str, Any], max_video_size_mb: float = 0.0) ->
         text_parts.append(f"简介：{metadata['desc']}")
     if metadata.get('timestamp'):
         text_parts.append(f"发布时间：{metadata['timestamp']}")
-    media_type = metadata.get('media_type', 'video')
-    if media_type in ('video', 'mixed'):
-        video_count = metadata.get('video_count', 0)
+    
+    video_count = metadata.get('video_count', 0)
+    if video_count > 0:
         actual_max_video_size_mb = metadata.get('max_video_size_mb')
         total_video_size_mb = metadata.get('total_video_size_mb', 0.0)
         
-        if actual_max_video_size_mb is not None and video_count > 0:
+        if actual_max_video_size_mb is not None:
             if video_count == 1:
                 text_parts.append(f"视频大小：{actual_max_video_size_mb:.1f} MB")
             else:
@@ -45,7 +45,8 @@ def build_text_node(metadata: Dict[str, Any], max_video_size_mb: float = 0.0) ->
                 )
     
     has_valid_media = metadata.get('has_valid_media')
-    media_urls = metadata.get('media_urls', [])
+    video_urls = metadata.get('video_urls', [])
+    image_urls = metadata.get('image_urls', [])
     
     has_text_metadata = bool(
         metadata.get('title') or 
@@ -57,7 +58,7 @@ def build_text_node(metadata: Dict[str, Any], max_video_size_mb: float = 0.0) ->
     if metadata.get('error'):
         text_parts.append(f"解析失败：{metadata['error']}")
 
-    if has_valid_media is False and media_urls and has_text_metadata and not metadata.get('exceeds_max_size'):
+    if has_valid_media is False and (video_urls or image_urls) and has_text_metadata and not metadata.get('exceeds_max_size'):
         text_parts.append("解析失败：直链内未找到有效媒体")
     
     if metadata.get('exceeds_max_size'):
@@ -69,6 +70,21 @@ def build_text_node(metadata: Dict[str, Any], max_video_size_mb: float = 0.0) ->
                 )
             else:
                 text_parts.append(f"解析失败：视频大小超过限制（{actual_video_size:.1f}MB）")
+    
+    # 添加下载失败统计（在原始链接行上方）
+    failed_video_count = metadata.get('failed_video_count', 0)
+    failed_image_count = metadata.get('failed_image_count', 0)
+    video_count = metadata.get('video_count', 0)
+    image_count = metadata.get('image_count', 0)
+    
+    if (failed_video_count > 0 or failed_image_count > 0) and (video_count > 0 or image_count > 0):
+        failure_parts = []
+        if video_count > 0:
+            failure_parts.append(f"视频 {failed_video_count}/{video_count}")
+        if image_count > 0:
+            failure_parts.append(f"图片 {failed_image_count}/{image_count}")
+        if failure_parts:
+            text_parts.append(f"下载失败：{', '.join(failure_parts)}")
     
     if metadata.get('url'):
         text_parts.append(f"原始链接：{metadata['url']}")
@@ -105,137 +121,72 @@ def build_media_nodes(
         logger.warning(f"元数据中缺少has_valid_media字段，跳过媒体节点构建: {metadata.get('url', '')}")
         return nodes
     
-    media_type = metadata.get('media_type', 'video')
-    media_urls = metadata.get('media_urls', [])
+    video_urls = metadata.get('video_urls', [])
+    image_urls = metadata.get('image_urls', [])
     file_paths = metadata.get('file_paths', [])
-    thumb_url = metadata.get('thumb_url')
     
-    if not media_urls and not file_paths:
+    if not video_urls and not image_urls and not file_paths:
         return nodes
     
-    if media_type == 'mixed':
-        video_urls = metadata.get('video_urls', [])
-        image_urls = metadata.get('image_urls', [])
-        video_thumb_urls = metadata.get('video_thumb_urls', [])
+    # 处理视频
+    file_idx = 0
+    for url_list in video_urls:
+        if not url_list or not isinstance(url_list, list):
+            continue
         
-        video_count = len(video_urls)
-        for idx in range(video_count):
-            video_url = video_urls[idx] if idx < len(video_urls) else None
-            if not video_url:
-                continue
-            
-            video_thumb = None
-            if idx < len(video_thumb_urls):
-                video_thumb = video_thumb_urls[idx]
-            
-            video_file_path = None
-            if use_local_files and file_paths:
-                video_url_idx = media_urls.index(video_url) if video_url in media_urls else None
-                if video_url_idx is not None and video_url_idx < len(file_paths):
-                    video_file_path = file_paths[video_url_idx]
-            
-            if use_local_files and video_file_path and os.path.exists(video_file_path):
-                try:
-                    nodes.append(Video.fromFileSystem(video_file_path))
-                except Exception as e:
-                    logger.warning(f"构建视频节点失败: {video_file_path}, 错误: {e}")
-            else:
-                try:
-                    if video_thumb:
-                        nodes.append(Video.fromURL(video_url, cover=video_thumb))
-                    else:
-                        nodes.append(Video.fromURL(video_url))
-                except Exception as e:
-                    logger.warning(f"构建视频节点失败: {video_url}, 错误: {e}")
+        # 使用第一个URL（成功下载的URL）
+        video_url = url_list[0] if url_list else None
+        if not video_url:
+            continue
         
-        for idx in range(len(image_urls)):
-            image_url = image_urls[idx]
-            if not image_url:
-                continue
-            
-            image_file_path = None
-            if use_local_files and file_paths:
-                image_url_idx = media_urls.index(image_url) if image_url in media_urls else None
-                if image_url_idx is not None and image_url_idx < len(file_paths):
-                    image_file_path = file_paths[image_url_idx]
-            
-            if use_local_files and image_file_path and os.path.exists(image_file_path):
-                try:
-                    nodes.append(Image.fromFileSystem(image_file_path))
-                except Exception as e:
-                    logger.warning(f"构建图片节点失败: {image_file_path}, 错误: {e}")
-            else:
-                try:
-                    nodes.append(Image.fromURL(image_url))
-                except Exception as e:
-                    logger.warning(f"构建图片节点失败: {image_url}, 错误: {e}")
-    elif media_type == 'gallery':
-        if use_local_files and file_paths:
-            for file_path in file_paths:
-                if file_path and os.path.exists(file_path):
-                    try:
-                        nodes.append(Image.fromFileSystem(file_path))
-                    except Exception as e:
-                        logger.warning(f"构建图片节点失败: {file_path}, 错误: {e}")
-                        if os.path.exists(file_path):
-                            try:
-                                os.unlink(file_path)
-                            except Exception:
-                                pass
+        video_file_path = None
+        if use_local_files and file_idx < len(file_paths):
+            video_file_path = file_paths[file_idx]
+        
+        if use_local_files and video_file_path and os.path.exists(video_file_path):
+            try:
+                nodes.append(Video.fromFileSystem(video_file_path))
+            except Exception as e:
+                logger.warning(f"构建视频节点失败: {video_file_path}, 错误: {e}")
         else:
-            for url in media_urls:
-                if url and isinstance(url, str) and url.startswith(('http://', 'https://')):
-                    try:
-                        nodes.append(Image.fromURL(url))
-                    except Exception as e:
-                        logger.warning(f"构建图片节点失败: {url}, 错误: {e}")
-    elif media_type == 'video':
-        video_urls = metadata.get('video_urls', media_urls)
-        video_thumb_urls = metadata.get('video_thumb_urls', [])
+            try:
+                nodes.append(Video.fromURL(video_url))
+            except Exception as e:
+                logger.warning(f"构建视频节点失败: {video_url}, 错误: {e}")
         
-        for idx, video_url in enumerate(video_urls):
-            if not video_url:
-                continue
-            
-            video_thumb = None
-            if idx < len(video_thumb_urls):
-                video_thumb = video_thumb_urls[idx]
-            elif thumb_url:
-                video_thumb = thumb_url
-            
-            video_file_path = None
-            if use_local_files and file_paths:
-                if idx < len(file_paths):
-                    video_file_path = file_paths[idx]
-            
-            if use_local_files and video_file_path and os.path.exists(video_file_path):
-                try:
-                    nodes.append(Video.fromFileSystem(video_file_path))
-                except Exception as e:
-                    logger.warning(f"构建视频节点失败: {video_file_path}, 错误: {e}")
-            else:
-                try:
-                    if video_thumb:
-                        nodes.append(Video.fromURL(video_url, cover=video_thumb))
-                    else:
-                        nodes.append(Video.fromURL(video_url))
-                except Exception as e:
-                    logger.warning(f"构建视频节点失败: {video_url}, 错误: {e}")
-    elif media_type == 'image':
-        if use_local_files and file_paths and file_paths[0]:
-            file_path = file_paths[0]
-            if os.path.exists(file_path):
-                try:
-                    nodes.append(Image.fromFileSystem(file_path))
-                except Exception as e:
-                    logger.warning(f"构建图片节点失败: {file_path}, 错误: {e}")
+        file_idx += 1
+    
+    # 处理图片
+    for url_list in image_urls:
+        if not url_list or not isinstance(url_list, list):
+            continue
+        
+        # 使用第一个URL（成功下载的URL）
+        image_url = url_list[0] if url_list else None
+        if not image_url:
+            continue
+        
+        image_file_path = None
+        if use_local_files and file_idx < len(file_paths):
+            image_file_path = file_paths[file_idx]
+        
+        if use_local_files and image_file_path and os.path.exists(image_file_path):
+            try:
+                nodes.append(Image.fromFileSystem(image_file_path))
+            except Exception as e:
+                logger.warning(f"构建图片节点失败: {image_file_path}, 错误: {e}")
+                if os.path.exists(image_file_path):
+                    try:
+                        os.unlink(image_file_path)
+                    except Exception:
+                        pass
         else:
-            if media_urls and media_urls[0]:
-                image_url = media_urls[0]
-                try:
-                    nodes.append(Image.fromURL(image_url))
-                except Exception as e:
-                    logger.warning(f"构建图片节点失败: {image_url}, 错误: {e}")
+            try:
+                nodes.append(Image.fromURL(image_url))
+            except Exception as e:
+                logger.warning(f"构建图片节点失败: {image_url}, 错误: {e}")
+        
+        file_idx += 1
     
     return nodes
 
@@ -341,9 +292,12 @@ def build_all_nodes(
         link_temp_files = []
         
         if use_local_files:
-            for file_path in link_file_paths:
+            video_urls = metadata.get('video_urls', [])
+            video_count = len(video_urls)
+            
+            for idx, file_path in enumerate(link_file_paths):
                 if file_path:
-                    if metadata.get('media_type') == 'video':
+                    if idx < video_count:
                         link_video_files.append(file_path)
                         video_files.append(file_path)
                     else:

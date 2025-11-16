@@ -432,20 +432,18 @@ class KuaishouParser(BaseVideoParser):
                 upload_time = self._extract_upload_time(video_url)
                 return {
                     "url": url,
-                    "media_type": "video",
                     "title": title,
                     "author": author,
                     "desc": "",
                     "timestamp": upload_time or "",
-                    "media_urls": [video_url],
-                    "thumb_url": None,
+                    "video_urls": [[video_url]],
+                    "image_urls": [],
                 }
 
             album = self._parse_album(html)
             if album:
-                images = album.get('images', [])
                 image_url_lists = album.get('image_url_lists', [])
-                if images:
+                if image_url_lists:
                     image_url = self._extract_album_image_url(html)
                     upload_time = (
                         self._extract_upload_time(image_url)
@@ -454,14 +452,12 @@ class KuaishouParser(BaseVideoParser):
                     )
                     return {
                         "url": url,
-                        "media_type": "gallery",
                         "title": title or "快手图集",
                         "author": author,
                         "desc": "",
                         "timestamp": upload_time or "",
-                        "media_urls": images,
-                        "thumb_url": None,
-                        "image_url_lists": image_url_lists,
+                        "video_urls": [],
+                        "image_urls": image_url_lists,
                     }
 
             rawdata = self._parse_rawdata_json(html)
@@ -473,13 +469,12 @@ class KuaishouParser(BaseVideoParser):
                         upload_time = self._extract_upload_time(video_url)
                         return {
                             "url": url,
-                            "media_type": "video",
                             "title": title,
                             "author": author,
                             "desc": "",
                             "timestamp": upload_time or "",
-                            "media_urls": [video_url],
-                            "thumb_url": None,
+                            "video_urls": [[video_url]],
+                            "image_urls": [],
                         }
                 
                 if 'photo' in rawdata and rawdata.get('type') == 1:
@@ -498,22 +493,19 @@ class KuaishouParser(BaseVideoParser):
                     music_path = rawdata['photo'].get('music')
                     album_data = self._build_album(cdns, music_path, img_paths)
                     if album_data:
-                        images = album_data.get('images', [])
                         image_url_lists = album_data.get('image_url_lists', [])
-                        if images:
+                        if image_url_lists:
                             upload_time = None
-                            if images[0]:
-                                upload_time = self._extract_upload_time(images[0])
+                            if image_url_lists[0] and image_url_lists[0][0]:
+                                upload_time = self._extract_upload_time(image_url_lists[0][0])
                             return {
                                 "url": url,
-                                "media_type": "gallery",
                                 "title": title or "快手图集",
                                 "author": author,
                                 "desc": "",
                                 "timestamp": upload_time or "",
-                                "media_urls": images,
-                                "thumb_url": None,
-                                "image_url_lists": image_url_lists,
+                                "video_urls": [],
+                                "image_urls": image_url_lists,
                             }
 
             if (metadata.get('userName') or

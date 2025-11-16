@@ -1029,12 +1029,12 @@ class BilibiliParser(BaseVideoParser):
 
                 return {
                     "url": final_url,
-                    "media_type": video_result.get("media_type", "video"),
                     "title": final_title,
                     "author": final_author,
                     "desc": final_desc,
                     "timestamp": final_timestamp,
-                    "media_urls": video_result.get("media_urls", []),
+                    "video_urls": video_result.get("video_urls", []),
+                    "image_urls": video_result.get("image_urls", []),
                 }
             else:
                 final_title = title
@@ -1051,16 +1051,15 @@ class BilibiliParser(BaseVideoParser):
 
                 return {
                     "url": original_url if B23_HOST in urlparse(original_url).netloc.lower() else url,
-                    "media_type": video_result.get("media_type", "video"),
                     "title": final_title,
                     "author": author,
                     "desc": final_desc,
                     "timestamp": timestamp,
-                    "media_urls": video_result.get("media_urls", []),
+                    "video_urls": video_result.get("video_urls", []),
+                    "image_urls": video_result.get("image_urls", []),
                 }
 
-        media_type = "image"
-        media_urls = []
+        image_urls = []
         if isinstance(item, dict):
             pictures = item.get("pictures", [])
             if isinstance(pictures, list):
@@ -1068,30 +1067,20 @@ class BilibiliParser(BaseVideoParser):
                     if isinstance(pic, dict):
                         pic_url = pic.get("img_src") or pic.get("imgSrc") or pic.get("url")
                         if pic_url:
-                            media_urls.append(pic_url)
+                            image_urls.append([pic_url])
                     elif isinstance(pic, str):
-                        media_urls.append(pic)
-
-            if len(media_urls) > 1:
-                media_type = "gallery"
-            elif len(media_urls) == 1:
-                media_type = "image"
-            else:
-                media_type = "image"
-
-        if not media_urls:
-            media_urls = []
+                        image_urls.append([pic])
 
         display_url = original_url if B23_HOST in urlparse(original_url).netloc.lower() else url
 
         return {
             "url": display_url,
-            "media_type": media_type,
             "title": title,
             "author": author,
             "desc": desc,
             "timestamp": timestamp,
-            "media_urls": media_urls,
+            "video_urls": [],
+            "image_urls": image_urls,
         }
 
     async def parse(
@@ -1222,13 +1211,12 @@ class BilibiliParser(BaseVideoParser):
         
         return {
             "url": display_url,
-            "media_type": "video",
             "title": info.get("title", ""),
             "author": info.get("author", ""),
             "desc": info.get("desc", ""),
             "timestamp": info.get("timestamp", ""),
-            "media_urls": [direct_url],
-            "thumb_url": None,
+            "video_urls": [[direct_url]],
+            "image_urls": [],
             "page_url": page_url,
         }
 

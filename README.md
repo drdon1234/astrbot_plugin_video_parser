@@ -45,6 +45,11 @@
 <td class="center">视频、图片</td>
 </tr>
 <tr>
+<td class="center"><strong>微博</strong></td>
+<td>桌面端博客链接（<code>weibo.com/...</code>）<br>移动端博客链接（<code>m.weibo.cn/detail/...</code>）<br>移动端视频分享链接（<code>video.weibo.com/show?fid=...</code>）<br>视频分享链接重定向（<code>weibo.com/tv/show/...</code>）</td>
+<td class="center">视频、图片</td>
+</tr>
+<tr>
 <td class="center"><strong>小红书</strong></td>
 <td>短链（<code>xhslink.com/...</code>）<br>笔记长链（<code>www.xiaohongshu.com/explore/...</code>）<br>笔记长链（<code>www.xiaohongshu.com/discovery/item/...</code>）</td>
 <td class="center">视频、图片</td>
@@ -231,6 +236,12 @@
 <td>-</td>
 </tr>
 <tr>
+<td>是否启用微博解析器</td>
+<td class="center"><code>bool</code></td>
+<td class="center"><code>true</code></td>
+<td>-</td>
+</tr>
+<tr>
 <td>是否启用小红书解析器</td>
 <td class="center"><code>bool</code></td>
 <td class="center"><code>true</code></td>
@@ -282,9 +293,17 @@
 
 ## 注意事项
 
-- 小红书的所有链接均有身份验证和时效性，在有效期内发送完整链接才能成功解析
-- 小红书分享长短链均有水印，explore 类型链接无水印
-- 推特链接无法解析第三方网站关联媒体
+1. **B站**：
+- 转发动态会使用"转发动态数据（原始动态数据）"组织文本格式解析结果
+
+2. **小红书**：
+- 所有链接均有身份验证和时效性，在有效期内发送完整链接才能成功解析
+- 分享链接的解析结果有水印
+
+3. **推特**：
+- 解析 API 使用 fxtwitter 服务，无需代理
+- 图片CDN大多被墙，建议开启代理
+- 视频CDN通常不受影响，可直连
 
 ---
 
@@ -296,4 +315,3 @@
 - **抖音解析方法**参考自：CSDN 博客文章  
   [文章链接](https://blog.csdn.net/qq_53153535/article/details/141297614)
 - **推特解析**使用免费第三方服务：fxtwitter（GitHub 项目 [FxEmbed](https://github.com/FxEmbed/FxEmbed)）
-
