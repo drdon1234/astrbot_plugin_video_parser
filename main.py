@@ -488,12 +488,16 @@ class VideoParserPlugin(Star):
         Args:
             event: 消息事件对象
         """
-        message_text = event.message_str
         try:
             messages = event.get_messages()
             if messages and len(messages) > 0:
                 message_data = json.loads(messages[0].data)
-                curl_link = message_data.get("meta").get("detail_1").get("qqdocurl")
+                meta = message_data.get("meta") or {}
+                detail_1 = meta.get("detail_1") or {}
+                curl_link = detail_1.get("qqdocurl")
+                if not curl_link:
+                    news = meta.get("news") or {}
+                    curl_link = news.get("jumpUrl")
                 if curl_link:
                     message_text = curl_link
         except (AttributeError, KeyError, json.JSONDecodeError, IndexError, TypeError):

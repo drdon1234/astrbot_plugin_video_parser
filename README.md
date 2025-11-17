@@ -33,7 +33,7 @@
 <tbody>
 <tr>
 <td class="center"><strong>B站</strong></td>
-<td>短链（<code>b23.tv/...</code>）<br>视频av号（<code>www.bilibili.com/video/av...</code>）<br>视频BV号（<code>www.bilibili.com/video/BV...</code>）<br>动态长链（<code>www.bilibili.com/opus/...</code>）<br>动态短链（<code>t.bilibili.com/...</code>）</td>
+<td>短链（<code>b23.tv/...</code>）<br>视频av号（<code>www.bilibili.com/video/av...</code>）<br>视频BV号（<code>www.bilibili.com/video/BV...</code>）<br>动态长链（<code>www.bilibili.com/opus/...</code>）<br>动态短链（<code>t.bilibili.com/...</code>）<br>小程序卡片（<code>message.meta.detail_1.qqdocurl</code>）</td>
 <td class="center">视频、图片</td>
 </tr>
 <tr>
@@ -48,12 +48,12 @@
 </tr>
 <tr>
 <td class="center"><strong>微博</strong></td>
-<td>桌面端博客链接（<code>weibo.com/...</code>）<br>移动端博客链接（<code>m.weibo.cn/detail/...</code>）<br>移动端视频分享链接（<code>video.weibo.com/show?fid=...</code>）<br>视频分享链接重定向（<code>weibo.com/tv/show/...</code>）</td>
+<td>桌面端博客链接（<code>weibo.com/...</code>）<br>移动端博客链接（<code>m.weibo.cn/detail/...</code>）<br>移动端视频分享链接（<code>video.weibo.com/show?fid=...</code>）<br>视频分享链接重定向（<code>weibo.com/tv/show/...</code>）<br>小程序卡片（<code>message.meta.detail_1.qqdocurl</code>）</td>
 <td class="center">视频、图片</td>
 </tr>
 <tr>
 <td class="center"><strong>小红书</strong></td>
-<td>短链（<code>xhslink.com/...</code>）<br>笔记长链（<code>www.xiaohongshu.com/explore/...</code>）<br>笔记长链（<code>www.xiaohongshu.com/discovery/item/...</code>）</td>
+<td>短链（<code>xhslink.com/...</code>）<br>笔记长链（<code>www.xiaohongshu.com/explore/...</code>）<br>笔记长链（<code>www.xiaohongshu.com/discovery/item/...</code>）<br>小程序卡片（<code>message.meta.news.jumpUrl</code>）</td>
 <td class="center">视频、图片</td>
 </tr>
 <tr>
