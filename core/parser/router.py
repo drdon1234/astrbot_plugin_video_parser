@@ -5,7 +5,13 @@
 """
 from typing import List, Tuple
 
-from .base_parser import BaseVideoParser
+try:
+    from astrbot.api import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+
+from .handler.base import BaseVideoParser
 
 
 class LinkRouter:
@@ -37,11 +43,14 @@ class LinkRouter:
             包含(链接, 解析器)元组的列表，按在文本中出现的位置排序
         """
         if "原始链接：" in text:
+            logger.debug("检测到'原始链接：'标记，跳过链接提取")
             return []
 
         links_with_position = []
         for parser in self.parsers:
             links = parser.extract_links(text)
+            if links:
+                logger.debug(f"解析器 {parser.name} 提取到 {len(links)} 个链接")
             for link in links:
                 position = text.find(link)
                 if position != -1:
@@ -55,6 +64,11 @@ class LinkRouter:
             if link not in seen_links:
                 seen_links.add(link)
                 links_with_parser.append((link, parser))
+        
+        if links_with_parser:
+            logger.debug(f"链接提取完成，共 {len(links_with_parser)} 个唯一链接: {[link for link, _ in links_with_parser]}")
+        else:
+            logger.debug("未提取到任何可解析链接")
         
         return links_with_parser
 
@@ -70,8 +84,11 @@ class LinkRouter:
         Raises:
             ValueError: 当找不到匹配的解析器时
         """
+        logger.debug(f"查找URL的解析器: {url}")
         for parser in self.parsers:
             if parser.can_parse(url):
+                logger.debug(f"找到匹配的解析器: {parser.name} for {url}")
                 return parser
+        logger.debug(f"未找到可以解析该URL的解析器: {url}")
         raise ValueError(f"找不到可以解析该URL的解析器: {url}")
 

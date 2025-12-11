@@ -2,12 +2,20 @@
 """
 节点构建模块
 负责从元数据构建astrbot消息节点
+集中所有 astrbot 消息组件的导入
 """
 import os
 from typing import Dict, Any, List, Optional, Tuple, Union
 
-from astrbot.api import logger
+try:
+    from astrbot.api import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+
 from astrbot.api.message_components import Plain, Image, Video, Node, Nodes
+
+from ..file_cleaner import cleanup_file
 
 
 def build_text_node(metadata: Dict[str, Any], max_video_size_mb: float = 0.0) -> Optional[Plain]:
@@ -111,16 +119,19 @@ def build_media_nodes(
         媒体节点列表（Image或Video节点）
     """
     nodes = []
+    url = metadata.get('url', '')
     
     if metadata.get('exceeds_max_size'):
+        logger.debug(f"媒体超过大小限制，跳过节点构建: {url}")
         return nodes
     
     has_valid_media = metadata.get('has_valid_media')
     if has_valid_media is False:
+        logger.debug(f"媒体无效，跳过节点构建: {url}")
         return nodes
     
     if has_valid_media is None:
-        logger.warning(f"元数据中缺少has_valid_media字段，跳过媒体节点构建: {metadata.get('url', '')}")
+        logger.warning(f"元数据中缺少has_valid_media字段，跳过媒体节点构建: {url}")
         return nodes
     
     video_urls = metadata.get('video_urls', [])
@@ -128,7 +139,14 @@ def build_media_nodes(
     file_paths = metadata.get('file_paths', [])
     video_sizes = metadata.get('video_sizes', [])
     
+    logger.debug(
+        f"构建媒体节点: {url}, "
+        f"视频: {len(video_urls)}, 图片: {len(image_urls)}, "
+        f"文件路径: {len(file_paths)}, 使用本地文件: {use_local_files}"
+    )
+    
     if not video_urls and not image_urls and not file_paths:
+        logger.debug(f"无媒体内容，跳过节点构建: {url}")
         return nodes
     
     file_idx = 0
@@ -174,16 +192,12 @@ def build_media_nodes(
         if use_local_files and file_idx < len(file_paths):
             image_file_path = file_paths[file_idx]
         
-        if use_local_files and image_file_path and os.path.exists(image_file_path):
+        if use_local_files and image_file_path:
             try:
                 nodes.append(Image.fromFileSystem(image_file_path))
             except Exception as e:
                 logger.warning(f"构建图片节点失败: {image_file_path}, 错误: {e}")
-                if os.path.exists(image_file_path):
-                    try:
-                        os.unlink(image_file_path)
-                    except Exception:
-                        pass
+                cleanup_file(image_file_path)
         else:
             try:
                 nodes.append(Image.fromURL(image_url))
@@ -192,6 +206,7 @@ def build_media_nodes(
         
         file_idx += 1
     
+    logger.debug(f"构建媒体节点完成: {url}, 共 {len(nodes)} 个节点")
     return nodes
 
 
@@ -253,7 +268,7 @@ def build_all_nodes(
     sender_id: Any,
     large_video_threshold_mb: float = 0.0,
     max_video_size_mb: float = 0.0
-) -> Tuple[List[List[Node]], List[Dict], List[str], List[str]]:
+) -> Tuple[List[List[Union[Plain, Image, Video]]], List[Dict], List[str], List[str]]:
     """构建所有链接的节点，处理消息打包逻辑
 
     Args:
@@ -273,7 +288,10 @@ def build_all_nodes(
     video_files = []
     separator = "-------------------------------------"
     
-    for metadata in metadata_list:
+    logger.debug(f"开始构建所有节点，元数据数量: {len(metadata_list)}, 打包模式: {is_auto_pack}")
+    
+    for idx, metadata in enumerate(metadata_list):
+        url = metadata.get('url', '')
         max_video_size = metadata.get('max_video_size_mb')
         exceeds_max_size = metadata.get('exceeds_max_size', False)
         is_large_media = False
@@ -283,6 +301,11 @@ def build_all_nodes(
         
         use_local_files = metadata.get('use_local_files', False)
         
+        logger.debug(
+            f"构建节点[{idx}]: {url}, "
+            f"大媒体: {is_large_media}, 使用本地文件: {use_local_files}"
+        )
+        
         link_nodes = build_nodes_for_link(
             metadata,
             use_local_files,
@@ -290,6 +313,8 @@ def build_all_nodes(
             sender_id,
             max_video_size_mb
         )
+        
+        logger.debug(f"节点构建完成[{idx}]: {url}, 节点数量: {len(link_nodes)}")
         
         link_file_paths = metadata.get('file_paths', [])
         link_video_files = []
@@ -316,6 +341,13 @@ def build_all_nodes(
             'video_files': link_video_files,
             'temp_files': link_temp_files
         })
+    
+    logger.debug(
+        f"所有节点构建完成: "
+        f"链接节点: {len(all_link_nodes)}, "
+        f"临时文件: {len(temp_files)}, "
+        f"视频文件: {len(video_files)}"
+    )
     
     return all_link_nodes, link_metadata, temp_files, video_files
 

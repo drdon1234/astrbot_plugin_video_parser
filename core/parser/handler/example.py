@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List
 
 import aiohttp
 
-from .base_parser import BaseVideoParser
+from .base import BaseVideoParser
 
 
 class ExampleParser(BaseVideoParser):

@@ -1,16 +1,160 @@
 # -*- coding: utf-8 -*-
 """
-文件管理模块
-负责缓存目录检查等文件处理相关的方法
+下载工具模块
+包含纯工具函数，无HTTP请求，无业务逻辑
 """
 import os
-from typing import List, Optional
+import re
+from typing import Optional
 
 try:
     from astrbot.api import logger
 except ImportError:
     import logging
     logger = logging.getLogger(__name__)
+
+
+def build_request_headers(
+    is_video: bool = False,
+    referer: str = None,
+    default_referer: str = None,
+    origin: str = None,
+    user_agent: str = None,
+    custom_headers: dict = None
+) -> dict:
+    """构建请求头
+
+    Args:
+        is_video: 是否为视频（True为视频，False为图片）
+        referer: Referer URL，如果提供则使用
+        default_referer: 默认Referer URL（如果referer未提供）
+        origin: Origin URL（可选）
+        user_agent: User-Agent（可选，默认使用桌面端 User-Agent）
+        custom_headers: 自定义请求头（如果提供，会与默认请求头合并）
+
+    Returns:
+        请求头字典
+    """
+    if custom_headers and 'Referer' in custom_headers:
+        referer_url = custom_headers['Referer']
+    else:
+        referer_url = referer if referer else (default_referer or '')
+    
+    if user_agent:
+        effective_user_agent = user_agent
+    else:
+        effective_user_agent = (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/120.0.0.0 Safari/537.36'
+        )
+    
+    default_accept_language = 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+    
+    if is_video:
+        headers = {
+            'User-Agent': effective_user_agent,
+            'Accept': '*/*',
+            'Accept-Language': default_accept_language,
+        }
+    else:
+        headers = {
+            'User-Agent': effective_user_agent,
+            'Accept': (
+                'image/avif,image/webp,image/apng,image/svg+xml,'
+                'image/*,*/*;q=0.8'
+            ),
+            'Accept-Language': default_accept_language,
+        }
+    
+    if referer_url:
+        headers['Referer'] = referer_url
+    
+    if origin:
+        headers['Origin'] = origin
+    
+    if custom_headers:
+        headers.update(custom_headers)
+    
+    return headers
+
+
+def validate_content_type(
+    content_type: str,
+    is_video: bool = False
+) -> bool:
+    """验证Content-Type是否为有效的媒体类型
+
+    Args:
+        content_type: Content-Type值（已转换为小写）
+        is_video: 是否为视频（True为视频，False为图片）
+
+    Returns:
+        如果为有效媒体类型返回True，否则返回False
+    """
+    if 'application/json' in content_type or 'text/' in content_type:
+        return False
+    
+    if is_video:
+        return (content_type.startswith('video/') or 
+                'mp4' in content_type or 
+                'octet-stream' in content_type or
+                not content_type)
+    else:
+        return (content_type.startswith('image/') or not content_type)
+
+
+def check_json_error_response(
+    content_preview: bytes,
+    media_url: str
+) -> bool:
+    """检查内容预览是否为JSON错误响应
+
+    Args:
+        content_preview: 内容预览（前64字节）
+        media_url: 媒体URL（用于日志）
+
+    Returns:
+        如果是JSON错误响应返回True，否则返回False
+    """
+    if not content_preview or not content_preview.startswith(b'{'):
+        return False
+    
+    try:
+        content_preview_str = content_preview.decode('utf-8', errors='ignore')
+        if 'error_code' in content_preview_str or 'error_response' in content_preview_str:
+            logger.warning(f"媒体URL包含错误响应（Content-Type为空）: {media_url}")
+            return True
+    except UnicodeDecodeError:
+        pass
+    
+    return False
+
+
+def extract_size_from_headers(
+    response
+) -> Optional[float]:
+    """从响应头中提取媒体大小
+
+    Args:
+        response: HTTP响应对象（aiohttp.ClientResponse）
+
+    Returns:
+        媒体大小(MB)，如果无法获取返回None
+    """
+    content_range = response.headers.get("Content-Range")
+    if content_range:
+        match = re.search(r'/\s*(\d+)', content_range)
+        if match:
+            size_bytes = int(match.group(1))
+            return size_bytes / (1024 * 1024)
+    
+    content_length = response.headers.get("Content-Length")
+    if content_length:
+        size_bytes = int(content_length)
+        return size_bytes / (1024 * 1024)
+    
+    return None
 
 
 def check_cache_dir_available(cache_dir: str) -> bool:
@@ -140,18 +284,4 @@ def get_video_suffix(content_type: str = None, url: str = None) -> str:
             return '.wmv'
 
     return '.mp4'
-
-
-def cleanup_files(file_paths: List[str]) -> None:
-    """清理文件列表
-
-    Args:
-        file_paths: 文件路径列表
-    """
-    for file_path in file_paths:
-        if file_path and os.path.exists(file_path):
-            try:
-                os.unlink(file_path)
-            except Exception as e:
-                logger.warning(f"清理文件失败: {file_path}, 错误: {e}")
 

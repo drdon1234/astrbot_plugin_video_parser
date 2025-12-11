@@ -11,7 +11,13 @@ from urllib.parse import urlparse, parse_qs
 
 import aiohttp
 
-from .base_parser import BaseVideoParser
+try:
+    from astrbot.api import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+
+from .base import BaseVideoParser
 
 
 class WeiboParser(BaseVideoParser):
@@ -47,7 +53,12 @@ class WeiboParser(BaseVideoParser):
         all_patterns = []
         for patterns in self.URL_PATTERNS.values():
             all_patterns.extend(patterns)
-        return any(re.search(pattern, url) for pattern in all_patterns)
+        result = any(re.search(pattern, url) for pattern in all_patterns)
+        if result:
+            logger.debug(f"[{self.name}] can_parse: 匹配微博链接 {url}")
+        else:
+            logger.debug(f"[{self.name}] can_parse: 无法解析 {url}")
+        return result
 
     def extract_links(self, text: str) -> List[str]:
         """从文本中提取微博链接
@@ -301,6 +312,12 @@ class WeiboParser(BaseVideoParser):
             'timestamp': timestamp,
             'video_urls': video_urls,
             'image_urls': image_urls,
+            'referer': 'https://weibo.com/',
+            'user_agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/120.0.0.0 Safari/537.36'
+            ),
         }
     
     def _separate_media_urls(self, media_urls: List[str]) -> tuple:
@@ -743,16 +760,26 @@ class WeiboParser(BaseVideoParser):
         Raises:
             Exception: 解析失败时抛出异常
         """
+        logger.debug(f"[{self.name}] parse: 开始解析 {url}")
         url_type = self._get_url_type(url)
+        logger.debug(f"[{self.name}] parse: URL类型 {url_type}")
 
         cookies = await self._get_visitor_cookies(session)
 
-        if url_type == 'weibo_com':
-            return await self._parse_weibo_com(session, url, cookies)
-        elif url_type == 'm_weibo_cn':
-            return await self._parse_m_weibo_cn(session, url, cookies)
-        elif url_type == 'video_weibo':
-            return await self._parse_video_weibo(session, url, cookies)
-        else:
-            raise ValueError(f"不支持的URL类型: {url_type}")
+        try:
+            if url_type == 'weibo_com':
+                result = await self._parse_weibo_com(session, url, cookies)
+            elif url_type == 'm_weibo_cn':
+                result = await self._parse_m_weibo_cn(session, url, cookies)
+            elif url_type == 'video_weibo':
+                result = await self._parse_video_weibo(session, url, cookies)
+            else:
+                logger.debug(f"[{self.name}] parse: 不支持的URL类型 {url_type}")
+                raise ValueError(f"不支持的URL类型: {url_type}")
+            if result:
+                logger.debug(f"[{self.name}] parse: 解析完成 {url}, video_count={len(result.get('video_urls', []))}, image_count={len(result.get('image_urls', []))}")
+            return result
+        except Exception as e:
+            logger.debug(f"[{self.name}] parse: 解析失败 {url}, 错误: {e}")
+            raise
 

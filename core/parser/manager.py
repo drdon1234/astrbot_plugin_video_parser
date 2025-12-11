@@ -8,10 +8,14 @@ from typing import List, Dict, Any, Optional, Tuple
 
 import aiohttp
 
-from astrbot.api import logger
+try:
+    from astrbot.api import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
 
-from ..parsers.base_parser import BaseVideoParser
-from ..parsers.link_router import LinkRouter
+from .handler.base import BaseVideoParser
+from .router import LinkRouter
 
 
 class ParserManager:
@@ -104,9 +108,20 @@ class ParserManager:
         """
         parser = self.find_parser(url)
         if parser is None:
+            self.logger.debug(f"未找到匹配的解析器: {url}")
             return None
+        self.logger.debug(f"使用解析器 {parser.name} 解析URL: {url}")
         try:
-            return await parser.parse(session, url)
+            result = await parser.parse(session, url)
+            if result:
+                if 'platform' not in result:
+                    result['platform'] = parser.name
+                self.logger.debug(
+                    f"解析成功: {url}, "
+                    f"视频: {len(result.get('video_urls', []))}, "
+                    f"图片: {len(result.get('image_urls', []))}"
+                )
+            return result
         except Exception as e:
             self.logger.exception(f"解析URL失败: {url}, 错误: {e}")
             return None
@@ -127,8 +142,10 @@ class ParserManager:
         """
         links_with_parser = self.extract_all_links(text)
         if not links_with_parser:
+            self.logger.debug("未提取到任何可解析链接")
             return []
         unique_links = self._deduplicate_links(links_with_parser)
+        self.logger.debug(f"去重后需要解析 {len(unique_links)} 个链接")
         tasks = [
             parser.parse(session, url)
             for url, parser in unique_links.items()
@@ -136,15 +153,21 @@ class ParserManager:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         metadata_list = []
         for i, result in enumerate(results):
+            url = list(unique_links.keys())[i]
+            parser = unique_links[url]
             if isinstance(result, Exception):
-                url = list(unique_links.keys())[i]
                 self.logger.exception(f"解析URL失败: {url}, 错误: {result}")
                 metadata_list.append({
                     'url': url,
                     'error': str(result),
                     'video_urls': [],
-                    'image_urls': []
+                    'image_urls': [],
+                    'platform': parser.name  # 即使解析失败，也记录尝试解析的平台
                 })
             elif result:
+                if 'platform' not in result:
+                    result['platform'] = parser.name
                 metadata_list.append(result)
+        self.logger.debug(f"解析完成，获得 {len(metadata_list)} 条元数据")
         return metadata_list
+

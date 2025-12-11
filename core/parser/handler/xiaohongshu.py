@@ -8,7 +8,13 @@ from urllib.parse import unquote, urlparse, parse_qs, urlencode, urlunparse
 
 import aiohttp
 
-from .base_parser import BaseVideoParser
+try:
+    from astrbot.api import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+
+from .base import BaseVideoParser
 
 
 ANDROID_UA = (
@@ -23,7 +29,7 @@ class XiaohongshuParser(BaseVideoParser):
 
     def __init__(self):
         """初始化小红书解析器"""
-        super().__init__("小红书")
+        super().__init__("xiaohongshu")
         self.headers = {
             "User-Agent": ANDROID_UA,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -78,7 +84,12 @@ class XiaohongshuParser(BaseVideoParser):
                 seen_urls.add(normalized)
                 result_links_set.add(link)
         
-        return list(result_links_set)
+        result = list(result_links_set)
+        if result:
+            logger.debug(f"[{self.name}] extract_links: 提取到 {len(result)} 个链接: {result[:3]}{'...' if len(result) > 3 else ''}")
+        else:
+            logger.debug(f"[{self.name}] extract_links: 未提取到链接")
+        return result
 
     def _clean_share_url(self, url: str) -> str:
         """清理分享长链URL，删除source和xhsshare参数
@@ -361,9 +372,11 @@ class XiaohongshuParser(BaseVideoParser):
         Raises:
             RuntimeError: 当解析失败时
         """
+        logger.debug(f"[{self.name}] parse: 开始解析 {url}")
         async with self.semaphore:
             if "xhslink.com" in url:
                 full_url = await self._get_redirect_url(session, url)
+                logger.debug(f"[{self.name}] parse: 短链展开 {url} -> {full_url}")
             else:
                 full_url = url
                 if not full_url.startswith("http://") and not full_url.startswith("https://"):
@@ -371,9 +384,11 @@ class XiaohongshuParser(BaseVideoParser):
 
             full_url = self._clean_share_url(full_url)
 
+            logger.debug(f"[{self.name}] parse: 获取页面内容")
             html = await self._fetch_page(session, full_url)
             initial_state = self._extract_initial_state(html)
             note_data = self._parse_note_data(initial_state)
+            logger.debug(f"[{self.name}] parse: 笔记数据提取成功")
 
             note_type = note_data.get("type", "normal")
             video_url = note_data.get("video_url", "")
@@ -394,9 +409,10 @@ class XiaohongshuParser(BaseVideoParser):
 
             if note_type == "video":
                 if not video_url:
+                    logger.debug(f"[{self.name}] parse: 无法获取视频URL {url}")
                     raise RuntimeError(f"无法获取视频URL: {url}")
 
-                return {
+                result_dict = {
                     "url": url,
                     "title": title,
                     "author": author,
@@ -404,13 +420,17 @@ class XiaohongshuParser(BaseVideoParser):
                     "timestamp": publish_time,
                     "video_urls": [[video_url]],
                     "image_urls": [],
-                    "page_url": full_url,
+                    "referer": full_url,
+                    "user_agent": ANDROID_UA,
                 }
+                logger.debug(f"[{self.name}] parse: 解析完成(视频) {url}, title={title[:50]}")
+                return result_dict
             else:
                 if not image_urls:
+                    logger.debug(f"[{self.name}] parse: 无法获取图片URL {url}")
                     raise RuntimeError(f"无法获取图片URL: {url}")
 
-                return {
+                result_dict = {
                     "url": url,
                     "title": title,
                     "author": author,
@@ -418,5 +438,8 @@ class XiaohongshuParser(BaseVideoParser):
                     "timestamp": publish_time,
                     "video_urls": [],
                     "image_urls": [[url] for url in image_urls],
-                    "page_url": full_url,
+                    "referer": full_url,
+                    "user_agent": ANDROID_UA,
                 }
+                logger.debug(f"[{self.name}] parse: 解析完成(图片) {url}, title={title[:50]}, image_count={len(image_urls)}")
+                return result_dict
